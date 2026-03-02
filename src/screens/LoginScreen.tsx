@@ -3,6 +3,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { useAuth } from "../context/AuthContext";
 
+
 type LoginScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   "Login"
@@ -21,9 +22,9 @@ export default function LoginScreen({ navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Login Screen</Text>
 
-      <Button
+    <Button
   title="Fake Login"
-  onPress={login}
+  onPress={() => login("test-token")}
 />
     </View>
   );

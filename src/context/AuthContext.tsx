@@ -1,12 +1,20 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type AuthContextType = {
   isAuthenticated: boolean;
-  login: () => void;
-  logout: () => void;
+  isLoading: boolean;
+  login: (token: string) => Promise<void>;
+  logout: () => Promise<void>;
 };
 
-// создаём контекст
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 type Props = {
@@ -15,18 +23,46 @@ type Props = {
 
 export function AuthProvider({ children }: Props) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = () => setIsAuthenticated(true);
-  const logout = () => setIsAuthenticated(false);
+  useEffect(() => {
+  const loadToken = async () => {
+
+    try {
+      const token = await AsyncStorage.getItem("accessToken");
+
+      if (token) {
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.log("ASYNC ERROR:", error);
+    }
+
+    
+    
+    setIsLoading(false);
+  };
+
+  loadToken();
+}, []);
+
+  const login = async (token: string) => {
+    setIsAuthenticated(true);
+  };
+
+  const logout = async () => {
+    setIsAuthenticated(false);
+  };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider
+      value={{ isAuthenticated, isLoading, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-// удобный хук
 export function useAuth() {
   const context = useContext(AuthContext);
 
