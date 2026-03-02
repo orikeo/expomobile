@@ -1,6 +1,7 @@
 import { View, Text, Button, StyleSheet } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/AppNavigator";
+import { useAuth } from "../context/AuthContext";
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -11,15 +12,19 @@ type Props = {
   navigation: LoginScreenNavigationProp;
 };
 
+
+
 export default function LoginScreen({ navigation }: Props) {
+
+  const { login } = useAuth();
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login Screen</Text>
 
       <Button
-        title="Fake Login"
-        onPress={() => navigation.replace("Home")}
-      />
+  title="Fake Login"
+  onPress={login}
+/>
     </View>
   );
 }
