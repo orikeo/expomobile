@@ -73,7 +73,7 @@ export default function LoginScreen({ navigation }: Props) {
        * Передаём accessToken в AuthContext
        * Он сохранится в AsyncStorage
        */
-      await login(data.accessToken);
+      await login(data.accessToken, data.refreshToken);
 
       /**
        * Навигация переключится автоматически,

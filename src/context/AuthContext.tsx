@@ -5,24 +5,17 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-/**
- * Тип данных, которые доступны из контекста
- */
 type AuthContextType = {
   isAuthenticated: boolean;
   isLoading: boolean;
   accessToken: string | null;
-  login: (token: string) => Promise<void>;
+  refreshToken: string | null;
+  login: (access: string, refresh: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
-/**
- * Создаём сам контекст
- * По умолчанию undefined — чтобы отлавливать ошибки использования вне Provider
- */
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 type Props = {
@@ -30,64 +23,43 @@ type Props = {
 };
 
 export function AuthProvider({ children }: Props) {
-  /**
-   * Состояние авторизации
-   */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  /**
-   * Состояние загрузки (чтобы не мигал экран при старте)
-   */
   const [isLoading, setIsLoading] = useState(true);
-
-  /**
-   * Храним accessToken в памяти
-   * Это быстрее, чем каждый раз читать из AsyncStorage
-   */
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
 
-  /**
-   * При запуске приложения проверяем,
-   * есть ли сохранённый токен
-   */
   useEffect(() => {
-    const loadToken = async () => {
+    const loadTokens = async () => {
       try {
-        const token = await AsyncStorage.getItem("accessToken");
+        const access = await AsyncStorage.getItem("accessToken");
+        const refresh = await AsyncStorage.getItem("refreshToken");
 
-        if (token) {
-          setAccessToken(token);
+        if (access && refresh) {
+          setAccessToken(access);
+          setRefreshToken(refresh);
           setIsAuthenticated(true);
         }
-      } catch (error) {
-        console.log("Error loading token:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadToken();
+    loadTokens();
   }, []);
 
-  /**
-   * Логин:
-   * - сохраняем токен
-   * - обновляем состояние
-   */
-  const login = async (token: string) => {
-    await AsyncStorage.setItem("accessToken", token);
-    setAccessToken(token);
+  const login = async (access: string, refresh: string) => {
+    await AsyncStorage.setItem("accessToken", access);
+    await AsyncStorage.setItem("refreshToken", refresh);
+
+    setAccessToken(access);
+    setRefreshToken(refresh);
     setIsAuthenticated(true);
   };
 
-  /**
-   * Логаут:
-   * - удаляем токен
-   * - сбрасываем состояние
-   */
   const logout = async () => {
-    await AsyncStorage.removeItem("accessToken");
+    await AsyncStorage.multiRemove(["accessToken", "refreshToken"]);
     setAccessToken(null);
+    setRefreshToken(null);
     setIsAuthenticated(false);
   };
 
@@ -97,6 +69,7 @@ export function AuthProvider({ children }: Props) {
         isAuthenticated,
         isLoading,
         accessToken,
+        refreshToken,
         login,
         logout,
       }}
@@ -106,15 +79,10 @@ export function AuthProvider({ children }: Props) {
   );
 }
 
-/**
- * Кастомный хук для удобного использования контекста
- */
 export function useAuth() {
   const context = useContext(AuthContext);
-
   if (!context) {
     throw new Error("useAuth must be used inside AuthProvider");
   }
-
   return context;
 }
