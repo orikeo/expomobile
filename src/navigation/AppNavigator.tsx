@@ -1,14 +1,17 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { View, ActivityIndicator } from "react-native";
+import { useAuth } from "../context/AuthContext";
 
 import LoginScreen from "../screens/LoginScreen";
 import HomeScreen from "../screens/HomeScreen";
-import { useAuth } from "../context/AuthContext";
+import WeightScreen from "../screens/WeightScreen";
+
 
 export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
+  Weights: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -25,6 +28,7 @@ function AppStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="Weights" component={WeightScreen} />
     </Stack.Navigator>
   );
 }
