@@ -7,7 +7,12 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  Alert,
+  Keyboard,
+  Dimensions,
 } from "react-native";
+
+import { LineChart } from "react-native-chart-kit";
 
 import { getWeights, addWeight, Weight } from "../api/weight.api";
 
@@ -16,6 +21,9 @@ export default function WeightScreen() {
   const [loading, setLoading] = useState(true);
   const [newWeight, setNewWeight] = useState("");
 
+  /**
+   * Загружаем веса с backend
+   */
   const loadWeights = async () => {
     try {
       const data = await getWeights();
@@ -27,20 +35,45 @@ export default function WeightScreen() {
     }
   };
 
+  /**
+   * вызывается один раз при открытии экрана
+   */
   useEffect(() => {
     loadWeights();
   }, []);
 
+  /**
+   * добавление веса
+   */
   const handleAddWeight = async () => {
     if (!newWeight) return;
 
     try {
       await addWeight(Number(newWeight));
+
       setNewWeight("");
-      loadWeights();
+
+      await loadWeights();
+
+      Alert.alert("Success", "Weight added");
+
+      Keyboard.dismiss();
     } catch (e) {
       console.log("Add weight error", e);
     }
+  };
+
+  /**
+   * Подготавливаем данные для графика
+   * react-native-chart-kit требует такой формат
+   */
+  const chartData = {
+    labels: weights.map((_, i) => (i + 1).toString()),
+    datasets: [
+      {
+        data: weights.map((w) => w.weight),
+      },
+    ],
   };
 
   if (loading) {
@@ -64,6 +97,28 @@ export default function WeightScreen() {
       />
 
       <Button title="Add Weight" onPress={handleAddWeight} />
+
+      {/* Показываем график только если есть данные */}
+      {weights.length > 0 && (
+        <LineChart
+          data={chartData}
+          width={Dimensions.get("window").width - 20}
+          height={220}
+          yAxisSuffix="kg"
+          chartConfig={{
+            backgroundColor: "#ffffff",
+            backgroundGradientFrom: "#ffffff",
+            backgroundGradientTo: "#ffffff",
+            decimalPlaces: 1,
+            color: (opacity = 1) => `rgba(0,0,0,${opacity})`,
+            labelColor: (opacity = 1) => `rgba(0,0,0,${opacity})`,
+          }}
+          style={{
+            marginVertical: 20,
+            borderRadius: 10,
+          }}
+        />
+      )}
 
       <FlatList
         data={weights}

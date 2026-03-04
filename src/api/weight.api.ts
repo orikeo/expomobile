@@ -13,7 +13,10 @@ export async function getWeights(): Promise<Weight[]> {
 export async function addWeight(weight: number) {
   return apiRequest("/weights", {
     method: "POST",
-    body: { weight },
+    body: {
+      weight,
+      entryDate: new Date().toISOString(),
+    },
   });
 }
 
