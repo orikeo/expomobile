@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   View,
   Text,
-  Button,
   TextInput,
   FlatList,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   Alert,
   Keyboard,
   Dimensions,
+  TouchableOpacity,
 } from "react-native";
 
 import { LineChart } from "react-native-chart-kit";
@@ -27,7 +27,15 @@ export default function WeightScreen() {
   const loadWeights = async () => {
     try {
       const data = await getWeights();
-      setWeights(data);
+
+      // сортируем по дате
+      const sorted = [...data].sort(
+        (a, b) =>
+          new Date(a.entryDate).getTime() -
+          new Date(b.entryDate).getTime()
+      );
+
+      setWeights(sorted);
     } catch (e) {
       console.log("Weight load error", e);
     } finally {
@@ -36,7 +44,7 @@ export default function WeightScreen() {
   };
 
   /**
-   * вызывается один раз при открытии экрана
+   * загружаем при открытии экрана
    */
   useEffect(() => {
     loadWeights();
@@ -64,17 +72,28 @@ export default function WeightScreen() {
   };
 
   /**
-   * Подготавливаем данные для графика
-   * react-native-chart-kit требует такой формат
+   * данные для графика
    */
   const chartData = {
-    labels: weights.map((_, i) => (i + 1).toString()),
+    labels: weights.map((w) =>
+      new Date(w.entryDate).toLocaleDateString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+      })
+    ),
+
     datasets: [
       {
         data: weights.map((w) => w.weight),
       },
     ],
   };
+
+  /**
+   * текущий вес (последний)
+   */
+  const currentWeight =
+    weights.length > 0 ? weights[weights.length - 1].weight : null;
 
   if (loading) {
     return (
@@ -88,6 +107,12 @@ export default function WeightScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Weight Tracker</Text>
 
+      {currentWeight && (
+        <Text style={styles.currentWeight}>
+          Current weight: {currentWeight} kg
+        </Text>
+      )}
+
       <TextInput
         placeholder="Enter weight"
         keyboardType="numeric"
@@ -96,9 +121,13 @@ export default function WeightScreen() {
         style={styles.input}
       />
 
-      <Button title="Add Weight" onPress={handleAddWeight} />
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={handleAddWeight}
+      >
+        <Text style={styles.addButtonText}>ADD WEIGHT</Text>
+      </TouchableOpacity>
 
-      {/* Показываем график только если есть данные */}
       {weights.length > 0 && (
         <LineChart
           data={chartData}
@@ -110,8 +139,15 @@ export default function WeightScreen() {
             backgroundGradientFrom: "#ffffff",
             backgroundGradientTo: "#ffffff",
             decimalPlaces: 1,
-            color: (opacity = 1) => `rgba(0,0,0,${opacity})`,
-            labelColor: (opacity = 1) => `rgba(0,0,0,${opacity})`,
+            color: (opacity = 1) =>
+              `rgba(0,0,0,${opacity})`,
+            labelColor: (opacity = 1) =>
+              `rgba(0,0,0,${opacity})`,
+            propsForDots: {
+              r: "4",
+              strokeWidth: "2",
+              stroke: "#1e90ff",
+            },
           }}
           style={{
             marginVertical: 20,
@@ -122,11 +158,18 @@ export default function WeightScreen() {
 
       <FlatList
         data={weights}
+        refreshing={loading}
+        onRefresh={loadWeights}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <Text>{item.weight} kg</Text>
-            <Text>{new Date(item.createdAt).toLocaleDateString()}</Text>
+            <Text style={styles.weightText}>
+              {item.weight} kg
+            </Text>
+
+            <Text style={styles.dateText}>
+              {new Date(item.entryDate).toLocaleDateString()}
+            </Text>
           </View>
         )}
       />
@@ -147,8 +190,15 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 22,
-    marginBottom: 20,
+    fontSize: 24,
+    marginBottom: 10,
+    fontWeight: "600",
+  },
+
+  currentWeight: {
+    fontSize: 18,
+    marginBottom: 15,
+    color: "#555",
   },
 
   input: {
@@ -159,9 +209,33 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
 
+  addButton: {
+    backgroundColor: "#1e90ff",
+    padding: 12,
+    borderRadius: 6,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+
   item: {
-    padding: 10,
+    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+
+  weightText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+
+  dateText: {
+    color: "#666",
+    fontSize: 14,
   },
 });

@@ -1,21 +1,30 @@
 import { apiRequest } from "./client";
 
 export type Weight = {
-  id: number;
+  id: string;
   weight: number;
+  entryDate: string;
   createdAt: string;
+  note?: string | null;
 };
 
 export async function getWeights(): Promise<Weight[]> {
-  return apiRequest("/weights");
+  const response = await apiRequest("/weights");
+
+  return response.items.map((w: any) => ({
+    ...w,
+    weight: Number(w.weight),
+  }));
 }
 
 export async function addWeight(weight: number) {
+  const today = new Date().toISOString().split("T")[0];
+
   return apiRequest("/weights", {
     method: "POST",
     body: {
       weight,
-      entryDate: new Date().toISOString(),
+      entryDate: today,
     },
   });
 }

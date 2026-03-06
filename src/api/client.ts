@@ -37,9 +37,9 @@ export async function apiRequest(
   endpoint: string,
   { method = "GET", body }: RequestOptions = {}
 ) {
-  let token = await AsyncStorage.getItem("accessToken");
+  const token = await AsyncStorage.getItem("accessToken");
 
-  let response = await fetch(`${API_URL}${endpoint}`, {
+  const response = await fetch(`${API_URL}${endpoint}`, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -48,28 +48,12 @@ export async function apiRequest(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  // Если accessToken протух
-  if (response.status === 401) {
-    try {
-      const newToken = await refreshAccessToken();
-
-      response = await fetch(`${API_URL}${endpoint}`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${newToken}`,
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-    } catch {
-      throw new Error("Session expired");
-    }
-  }
+  const text = await response.text();
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.message || "Request failed");
+    console.log("SERVER RESPONSE:", text);
+    throw new Error(text || "Request failed");
   }
 
-  return response.json();
+  return JSON.parse(text);
 }
