@@ -1,0 +1,82 @@
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
+
+/**
+ * Импорт экранов
+ */
+import HomeScreen from "../screens/HomeScreen";
+import WeightScreen from "../screens/WeightScreen";
+
+/**
+ * Типы навигации
+ * Это список всех экранов внутри Tabs
+ */
+export type MainTabParamList = {
+  Home: undefined;
+  Weights: undefined;
+};
+
+/**
+ * Создаём Tab Navigator
+ */
+const Tab = createBottomTabNavigator<MainTabParamList>();
+
+export default function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        /**
+         * Убираем верхний header
+         */
+        headerShown: false,
+
+        /**
+         * Цвета вкладок
+         */
+        tabBarActiveTintColor: "#1e90ff",
+        tabBarInactiveTintColor: "gray",
+
+        /**
+         * Иконки вкладок
+         */
+        tabBarIcon: ({ color, size }) => {
+          let iconName: keyof typeof Ionicons.glyphMap;
+
+          if (route.name === "Home") {
+            iconName = "home";
+          } else if (route.name === "Weights") {
+            iconName = "fitness";
+          } else {
+            iconName = "ellipse";
+          }
+
+          return (
+            <Ionicons
+              name={iconName}
+              size={size}
+              color={color}
+            />
+          );
+        },
+      })}
+    >
+      {/* Home */}
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: "Home",
+        }}
+      />
+
+      {/* Weight Tracker */}
+      <Tab.Screen
+        name="Weights"
+        component={WeightScreen}
+        options={{
+          tabBarLabel: "Weights",
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
