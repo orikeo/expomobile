@@ -29,6 +29,16 @@ export async function addWeight(weight: number) {
   });
 }
 
+export const deleteWeight = async (
+  id: string
+) => {
+
+  await apiRequest(`/weights/${id}`, {
+    method: "DELETE"
+  });
+
+};
+
 export async function getWeightHistory() {
   return apiRequest("/weights/history");
 }

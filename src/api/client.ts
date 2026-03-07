@@ -7,7 +7,13 @@ type RequestOptions = {
   body?: any;
 };
 
-async function refreshAccessToken() {
+let logoutHandler: (() => void) | null = null;
+
+export function setLogoutHandler(fn: () => void) {
+  logoutHandler = fn;
+}
+
+export async function refreshAccessToken() {
   const refreshToken = await AsyncStorage.getItem("refreshToken");
 
   if (!refreshToken) {
@@ -37,16 +43,36 @@ export async function apiRequest(
   endpoint: string,
   { method = "GET", body }: RequestOptions = {}
 ) {
-  const token = await AsyncStorage.getItem("accessToken");
+  let token = await AsyncStorage.getItem("accessToken");
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const makeRequest = async (accessToken?: string) => {
+    return fetch(`${API_URL}${endpoint}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  };
+
+  let response = await makeRequest(token ?? undefined);
+
+  /**
+   * если access token истёк
+   */
+  if (response.status === 401) {
+  try {
+    const newToken = await refreshAccessToken();
+    response = await makeRequest(newToken);
+  } catch (e) {
+    console.log("Refresh failed");
+
+    logoutHandler?.();
+
+    throw new Error("Session expired");
+  }
+}
 
   const text = await response.text();
 

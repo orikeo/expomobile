@@ -5,13 +5,18 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { refreshAccessToken, setLogoutHandler } from "../api/client";
 
 type AuthContextType = {
   isAuthenticated: boolean;
   isLoading: boolean;
+
   accessToken: string | null;
   refreshToken: string | null;
+
   login: (access: string, refresh: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -25,41 +30,74 @@ type Props = {
 export function AuthProvider({ children }: Props) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
 
+  /**
+   * регистрируем глобический logout
+   */
   useEffect(() => {
-    const loadTokens = async () => {
-      try {
-        const access = await AsyncStorage.getItem("accessToken");
-        const refresh = await AsyncStorage.getItem("refreshToken");
+    setLogoutHandler(async () => {
+      await logout();
+    });
+  }, []);
 
-        if (access && refresh) {
-          setAccessToken(access);
-          setRefreshToken(refresh);
+  /**
+   * bootstrap авторизации при запуске приложения
+   */
+  useEffect(() => {
+    const bootstrapAuth = async () => {
+      try {
+        const storedRefresh = await AsyncStorage.getItem("refreshToken");
+
+        if (!storedRefresh) {
+          setIsLoading(false);
+          return;
+        }
+
+        try {
+          const newAccessToken = await refreshAccessToken();
+
+          setAccessToken(newAccessToken);
+          setRefreshToken(storedRefresh);
+
           setIsAuthenticated(true);
+        } catch (err) {
+          console.log("Auto refresh failed");
+
+          await logout();
         }
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadTokens();
+    bootstrapAuth();
   }, []);
 
+  /**
+   * login
+   */
   const login = async (access: string, refresh: string) => {
     await AsyncStorage.setItem("accessToken", access);
     await AsyncStorage.setItem("refreshToken", refresh);
 
     setAccessToken(access);
     setRefreshToken(refresh);
+
     setIsAuthenticated(true);
   };
 
+  /**
+   * logout
+   */
   const logout = async () => {
     await AsyncStorage.multiRemove(["accessToken", "refreshToken"]);
+
     setAccessToken(null);
     setRefreshToken(null);
+
     setIsAuthenticated(false);
   };
 
@@ -81,8 +119,10 @@ export function AuthProvider({ children }: Props) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+
   if (!context) {
     throw new Error("useAuth must be used inside AuthProvider");
   }
+
   return context;
 }

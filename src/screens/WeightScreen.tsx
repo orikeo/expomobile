@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
-  FlatList,
   StyleSheet,
   ActivityIndicator,
   Alert,
   Keyboard,
-  Dimensions,
-  TouchableOpacity,
 } from "react-native";
 
-import { LineChart } from "react-native-chart-kit";
+import {
+  getWeights,
+  addWeight,
+  deleteWeight,
+  Weight,
+} from "../api/weight.api";
 
-import { getWeights, addWeight, Weight } from "../api/weight.api";
+import WeightForm from "../components/weight/WeightForm";
+import WeightChart from "../components/weight/WeightChart";
+import WeightList from "../components/weight/WeightList";
 
 export default function WeightScreen() {
   const [weights, setWeights] = useState<Weight[]>([]);
@@ -22,13 +25,12 @@ export default function WeightScreen() {
   const [newWeight, setNewWeight] = useState("");
 
   /**
-   * Загружаем веса с backend
+   * загрузка весов
    */
   const loadWeights = async () => {
     try {
       const data = await getWeights();
 
-      // сортируем по дате
       const sorted = [...data].sort(
         (a, b) =>
           new Date(a.entryDate).getTime() -
@@ -44,7 +46,7 @@ export default function WeightScreen() {
   };
 
   /**
-   * загружаем при открытии экрана
+   * загрузка при открытии
    */
   useEffect(() => {
     loadWeights();
@@ -72,25 +74,20 @@ export default function WeightScreen() {
   };
 
   /**
-   * данные для графика
+   * удаление веса
    */
-  const chartData = {
-    labels: weights.map((w) =>
-      new Date(w.entryDate).toLocaleDateString("ru-RU", {
-        day: "2-digit",
-        month: "2-digit",
-      })
-    ),
+  const handleDeleteWeight = async (id: string) => {
+    try {
+      await deleteWeight(id);
 
-    datasets: [
-      {
-        data: weights.map((w) => w.weight),
-      },
-    ],
+      await loadWeights();
+    } catch (e) {
+      console.log("Delete weight error", e);
+    }
   };
 
   /**
-   * текущий вес (последний)
+   * текущий вес
    */
   const currentWeight =
     weights.length > 0 ? weights[weights.length - 1].weight : null;
@@ -113,65 +110,21 @@ export default function WeightScreen() {
         </Text>
       )}
 
-      <TextInput
-        placeholder="Enter weight"
-        keyboardType="numeric"
-        value={newWeight}
-        onChangeText={setNewWeight}
-        style={styles.input}
+      <WeightForm
+        newWeight={newWeight}
+        setNewWeight={setNewWeight}
+        onAdd={handleAddWeight}
       />
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={handleAddWeight}
-      >
-        <Text style={styles.addButtonText}>ADD WEIGHT</Text>
-      </TouchableOpacity>
-
       {weights.length > 0 && (
-        <LineChart
-          data={chartData}
-          width={Dimensions.get("window").width - 20}
-          height={220}
-          yAxisSuffix="kg"
-          chartConfig={{
-            backgroundColor: "#ffffff",
-            backgroundGradientFrom: "#ffffff",
-            backgroundGradientTo: "#ffffff",
-            decimalPlaces: 1,
-            color: (opacity = 1) =>
-              `rgba(0,0,0,${opacity})`,
-            labelColor: (opacity = 1) =>
-              `rgba(0,0,0,${opacity})`,
-            propsForDots: {
-              r: "4",
-              strokeWidth: "2",
-              stroke: "#1e90ff",
-            },
-          }}
-          style={{
-            marginVertical: 20,
-            borderRadius: 10,
-          }}
-        />
+        <WeightChart weights={weights} />
       )}
 
-      <FlatList
-        data={weights}
-        refreshing={loading}
+      <WeightList
+        weights={weights}
+        loading={loading}
         onRefresh={loadWeights}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <Text style={styles.weightText}>
-              {item.weight} kg
-            </Text>
-
-            <Text style={styles.dateText}>
-              {new Date(item.entryDate).toLocaleDateString()}
-            </Text>
-          </View>
-        )}
+        onDelete={handleDeleteWeight}
       />
     </View>
   );
@@ -199,43 +152,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 15,
     color: "#555",
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 6,
-  },
-
-  addButton: {
-    backgroundColor: "#1e90ff",
-    padding: 12,
-    borderRadius: 6,
-    alignItems: "center",
-    marginBottom: 15,
-  },
-
-  addButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 16,
-  },
-
-  item: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-
-  weightText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-
-  dateText: {
-    color: "#666",
-    fontSize: 14,
   },
 });
