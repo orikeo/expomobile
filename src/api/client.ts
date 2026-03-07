@@ -1,78 +1,152 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+/**
+ * URL твоего backend API
+ */
 const API_URL = "https://petv5.onrender.com";
 
+/**
+ * тип опций запроса
+ */
 type RequestOptions = {
   method?: string;
   body?: any;
 };
 
-let logoutHandler: (() => void) | null = null;
+/**
+ * logout handler будет устанавливаться из AuthContext
+ * чтобы API клиент мог разлогинить пользователя
+ */
+let logoutHandler: (() => Promise<void>) | null = null;
 
-export function setLogoutHandler(fn: () => void) {
+/**
+ * функция регистрации logout из AuthContext
+ */
+export function setLogoutHandler(fn: () => Promise<void>) {
   logoutHandler = fn;
 }
 
-export async function refreshAccessToken() {
-  const refreshToken = await AsyncStorage.getItem("refreshToken");
+/**
+ * refresh lock
+ *
+ * если refresh уже выполняется —
+ * остальные запросы ждут его завершения
+ */
+let refreshPromise: Promise<string> | null = null;
 
-  if (!refreshToken) {
-    throw new Error("No refresh token");
+/**
+ * функция обновления access token
+ */
+export async function refreshAccessToken(): Promise<string> {
+  /**
+   * если refresh уже идёт — ждём его
+   */
+  if (refreshPromise) {
+    return refreshPromise;
   }
 
-  const response = await fetch(`${API_URL}/auth/refresh`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ refreshToken }),
-  });
+  /**
+   * создаём refresh promise
+   */
+  refreshPromise = (async () => {
+    const refreshToken = await AsyncStorage.getItem("refreshToken");
 
-  if (!response.ok) {
-    throw new Error("Refresh failed");
+    if (!refreshToken) {
+      throw new Error("No refresh token");
+    }
+
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Refresh failed");
+    }
+
+    const data = await response.json();
+
+    /**
+     * сохраняем новый access token
+     */
+    await AsyncStorage.setItem("accessToken", data.accessToken);
+
+    return data.accessToken;
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    /**
+     * после завершения refresh снимаем lock
+     */
+    refreshPromise = null;
   }
-
-  const data = await response.json();
-
-  await AsyncStorage.setItem("accessToken", data.accessToken);
-
-  return data.accessToken;
 }
 
+/**
+ * главный API клиент
+ */
 export async function apiRequest(
   endpoint: string,
   { method = "GET", body }: RequestOptions = {}
 ) {
-  let token = await AsyncStorage.getItem("accessToken");
+  /**
+   * берём access token
+   */
+  const token = await AsyncStorage.getItem("accessToken");
 
+  /**
+   * функция выполнения запроса
+   */
   const makeRequest = async (accessToken?: string) => {
     return fetch(`${API_URL}${endpoint}`, {
       method,
       headers: {
         "Content-Type": "application/json",
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+
+        ...(accessToken && {
+          Authorization: `Bearer ${accessToken}`,
+        }),
       },
       body: body ? JSON.stringify(body) : undefined,
     });
   };
 
+  /**
+   * первый запрос
+   */
   let response = await makeRequest(token ?? undefined);
 
   /**
-   * если access token истёк
+   * если accessToken истёк
    */
   if (response.status === 401) {
-  try {
-    const newToken = await refreshAccessToken();
-    response = await makeRequest(newToken);
-  } catch (e) {
-    console.log("Refresh failed");
+    try {
+      /**
+       * обновляем токен
+       */
+      const newToken = await refreshAccessToken();
 
-    logoutHandler?.();
+      /**
+       * повторяем запрос
+       */
+      response = await makeRequest(newToken);
+    } catch (err) {
+      console.log("Refresh failed, logging out");
 
-    throw new Error("Session expired");
+      /**
+       * если refresh не сработал —
+       * делаем глобический logout
+       */
+      await logoutHandler?.();
+
+      throw new Error("Session expired");
+    }
   }
-}
 
   const text = await response.text();
 
@@ -81,5 +155,8 @@ export async function apiRequest(
     throw new Error(text || "Request failed");
   }
 
-  return JSON.parse(text);
+  /**
+   * если сервер вернул пустой ответ
+   */
+  return text ? JSON.parse(text) : null;
 }
