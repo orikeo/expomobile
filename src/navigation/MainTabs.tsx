@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
  */
 import HomeScreen from "../screens/HomeScreen";
 import WeightScreen from "../screens/WeightScreen";
+import CarsScreen from "../screens/CarsScreen";
 
 /**
  * Типы навигации
@@ -14,6 +15,7 @@ import WeightScreen from "../screens/WeightScreen";
 export type MainTabParamList = {
   Home: undefined;
   Weights: undefined;
+  Cars: undefined;
 };
 
 /**
@@ -68,6 +70,11 @@ export default function MainTabs() {
           tabBarLabel: "Home",
         }}
       />
+
+      <Tab.Screen
+  name="Cars"
+  component={CarsScreen}
+/>
 
       {/* Weight Tracker */}
       <Tab.Screen
