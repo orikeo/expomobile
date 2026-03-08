@@ -1,9 +1,12 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
+
 /**
  * Импорт экранов
  */
+
+import CarsStack from "./CarsStack";
 import HomeScreen from "../screens/HomeScreen";
 import WeightScreen from "../screens/WeightScreen";
 import CarsScreen from "../screens/CarsScreen";
@@ -73,7 +76,7 @@ export default function MainTabs() {
 
       <Tab.Screen
   name="Cars"
-  component={CarsScreen}
+  component={CarsStack}
 />
 
       {/* Weight Tracker */}
