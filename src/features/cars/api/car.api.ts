@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { apiRequest } from "../../../api/client";
 
 export type Car = {
   id: string;

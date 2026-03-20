@@ -12,7 +12,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { CarsStackParamList } from "../navigation/CarsStack";
+import { CarsStackParamList } from "../../../navigation/CarsStack";
 import { createFuelLog } from "../api/fuel.api";
 
 type RouteType = RouteProp<CarsStackParamList, "CreateFuel">;

@@ -8,7 +8,7 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { refreshAccessToken, setLogoutHandler } from "../api/client";
+import { refreshAccessToken, setLogoutHandler } from "../../../api/client";
 
 type AuthContextType = {
   isAuthenticated: boolean;

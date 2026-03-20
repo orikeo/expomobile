@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Alert, TouchableOpacity } from "react-native";
-import { Weight } from "../../api/weight.api";
+import { Weight } from "../api/weight.api";
 
 type Props = {
   item: Weight;

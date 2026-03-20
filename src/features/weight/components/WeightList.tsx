@@ -1,5 +1,5 @@
 import { FlatList } from "react-native";
-import { Weight } from "../../api/weight.api";
+import { Weight } from "../api/weight.api";
 import WeightItem from "./WeightItem";
 
 type Props = {

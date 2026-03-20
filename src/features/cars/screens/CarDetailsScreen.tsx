@@ -13,7 +13,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { CarsStackParamList } from "../navigation/CarsStack";
+import { CarsStackParamList } from "../../../navigation/CarsStack";
 
 type RouteType = RouteProp<CarsStackParamList, "CarDetails">;
 type NavigationType = NativeStackNavigationProp<

@@ -9,9 +9,9 @@ import {
 } from "react-native";
 
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../navigation/AppNavigator";
+import { RootStackParamList } from "../../../navigation/AppNavigator";
 import { useAuth } from "../context/AuthContext";
-import { apiRequest } from "../api/client";
+import { apiRequest } from "../../../api/client";
 
 /**
  * Тип navigation для этого экрана.

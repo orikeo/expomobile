@@ -22,7 +22,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { getCars, createCar, Car } from "../api/car.api";
-import { CarsStackParamList } from "../navigation/CarsStack";
+import { CarsStackParamList } from "../../../navigation/CarsStack";
 
 /**
  * тип навигации

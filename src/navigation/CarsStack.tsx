@@ -1,11 +1,10 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import CarsScreen from "../screens/CarsScreen";
-import CarDetailsScreen from "../screens/CarDetailsScreen";
-
-import FuelLogsScreen from "../screens/FuelLogsScreen";
-import RepairsScreen from "../screens/RepairsScreen";
-import CreateFuelScreen from "../screens/CreateFuelScreen";
+import CarsScreen from "../features/cars/screens/CarsScreen";
+import CarDetailsScreen from "../features/cars/screens/CarDetailsScreen";
+import FuelLogsScreen from "../features/cars/screens/FuelLogsScreen";
+import RepairsScreen from "../features/cars/screens/RepairsScreen";
+import CreateFuelScreen from "../features/cars/screens/CreateFuelScreen";
 
 export type CarsStackParamList = {
   CarsList: undefined;

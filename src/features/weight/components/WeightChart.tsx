@@ -1,6 +1,6 @@
 import { View, Dimensions } from "react-native";
 import { LineChart } from "react-native-chart-kit";
-import { Weight } from "../../api/weight.api";
+import { Weight } from "../api/weight.api";
 
 type Props = {
   weights: Weight[];

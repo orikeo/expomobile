@@ -15,9 +15,9 @@ import {
   Weight,
 } from "../api/weight.api";
 
-import WeightForm from "../components/weight/WeightForm";
-import WeightChart from "../components/weight/WeightChart";
-import WeightList from "../components/weight/WeightList";
+import WeightForm from "../components/WeightForm";
+import WeightChart from "../components/WeightChart";
+import WeightList from "../components/WeightList";
 
 export default function WeightScreen() {
   const [weights, setWeights] = useState<Weight[]>([]);

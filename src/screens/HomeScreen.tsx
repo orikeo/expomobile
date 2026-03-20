@@ -1,5 +1,5 @@
 import { View, Text, Button, Alert } from "react-native";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../features/auth/context/AuthContext";
 import { apiRequest } from "../api/client";
 
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
