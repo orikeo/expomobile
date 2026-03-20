@@ -7,19 +7,30 @@ export type Car = {
   created_at: string;
 };
 
-/**
- * получить список машин
- */
 export async function getCars(): Promise<Car[]> {
   return apiRequest("/cars");
 }
 
-/**
- * создать машину
- */
-export async function createCar(name: string) {
+export async function getCarById(id: string): Promise<Car> {
+  return apiRequest(`/cars/${id}`);
+}
+
+export async function createCar(name: string): Promise<Car> {
   return apiRequest("/cars", {
     method: "POST",
     body: { name },
+  });
+}
+
+export async function updateCar(id: string, name: string): Promise<Car> {
+  return apiRequest(`/cars/${id}`, {
+    method: "PATCH",
+    body: { name },
+  });
+}
+
+export async function deleteCar(id: string): Promise<{ message: string }> {
+  return apiRequest(`/cars/${id}`, {
+    method: "DELETE",
   });
 }

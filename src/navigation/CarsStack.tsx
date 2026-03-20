@@ -5,9 +5,9 @@ import CarDetailsScreen from "../screens/CarDetailsScreen";
 
 import FuelLogsScreen from "../screens/FuelLogsScreen";
 import RepairsScreen from "../screens/RepairsScreen";
+import CreateFuelScreen from "../screens/CreateFuelScreen";
 
 export type CarsStackParamList = {
-
   CarsList: undefined;
 
   CarDetails: {
@@ -25,16 +25,17 @@ export type CarsStackParamList = {
     name: string;
   };
 
+  CreateFuel: {
+    carId: string;
+    name: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<CarsStackParamList>();
 
 export default function CarsStack() {
-
   return (
-
     <Stack.Navigator>
-
       <Stack.Screen
         name="CarsList"
         component={CarsScreen}
@@ -59,8 +60,11 @@ export default function CarsStack() {
         options={{ title: "Repairs" }}
       />
 
+      <Stack.Screen
+        name="CreateFuel"
+        component={CreateFuelScreen}
+        options={{ title: "Add Fuel" }}
+      />
     </Stack.Navigator>
-
   );
-
 }
