@@ -78,22 +78,39 @@ export default function FuelLogsScreen() {
   function renderItem({ item }: { item: FuelLog }) {
     return (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>{item.liters} л</Text>
+        <View style={styles.rowBetween}>
+          <Text style={styles.cardTitle}>{item.fuelDate}</Text>
+
+          <View
+            style={[
+              styles.badge,
+              item.fullTank ? styles.badgeFull : styles.badgePartial,
+            ]}
+          >
+            <Text style={styles.badgeText}>
+              {item.fullTank ? "Full tank" : "Partial"}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.cardText}>Liters: {item.liters}</Text>
 
         <Text style={styles.cardText}>
-          Цена за литр: {item.pricePerLiter}
+          Price per liter: {item.pricePerLiter}
+        </Text>
+
+        <Text style={styles.cardText}>Total price: {item.totalPrice}</Text>
+
+        <Text style={styles.cardText}>
+          Odometer: {item.odometer ?? "—"}
         </Text>
 
         <Text style={styles.cardText}>
-          Общая сумма: {item.totalPrice}
-        </Text>
-
-        <Text style={styles.cardText}>
-          Пробег: {item.odometer ?? "—"}
+          Station: {item.station ? item.station : "—"}
         </Text>
 
         <Text style={styles.cardDate}>
-          {new Date(item.createdAt).toLocaleString()}
+          Created: {new Date(item.createdAt).toLocaleString()}
         </Text>
       </View>
     );
@@ -195,10 +212,38 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
   },
 
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    gap: 8,
+  },
+
   cardTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 8,
+    flex: 1,
+  },
+
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+
+  badgeFull: {
+    backgroundColor: "#dff5e3",
+  },
+
+  badgePartial: {
+    backgroundColor: "#f3f3f3",
+  },
+
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
   },
 
   cardText: {

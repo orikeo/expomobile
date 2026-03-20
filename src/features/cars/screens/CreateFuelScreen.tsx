@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -18,16 +19,26 @@ import { createFuelLog } from "../api/fuel.api";
 type RouteType = RouteProp<CarsStackParamList, "CreateFuel">;
 type NavigationType = NativeStackNavigationProp<CarsStackParamList, "CreateFuel">;
 
+function getTodayDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = `${today.getMonth() + 1}`.padStart(2, "0");
+  const day = `${today.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function CreateFuelScreen() {
   const route = useRoute<RouteType>();
   const navigation = useNavigation<NavigationType>();
 
   const { carId, name } = route.params;
 
+  const [fuelDate, setFuelDate] = useState(getTodayDateString());
   const [liters, setLiters] = useState("");
   const [pricePerLiter, setPricePerLiter] = useState("");
-  const [totalPrice, setTotalPrice] = useState("");
   const [odometer, setOdometer] = useState("");
+  const [station, setStation] = useState("");
+  const [fullTank, setFullTank] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useLayoutEffect(() => {
@@ -36,19 +47,52 @@ export default function CreateFuelScreen() {
     });
   }, [navigation, name]);
 
+  const totalPricePreview = useMemo(() => {
+    const litersNumber = Number(liters.replace(",", "."));
+    const priceNumber = Number(pricePerLiter.replace(",", "."));
+
+    if (
+      Number.isNaN(litersNumber) ||
+      Number.isNaN(priceNumber) ||
+      litersNumber <= 0 ||
+      priceNumber <= 0
+    ) {
+      return "";
+    }
+
+    return (litersNumber * priceNumber).toFixed(2);
+  }, [liters, pricePerLiter]);
+
   async function handleSave() {
-    if (!liters.trim()) {
-      Alert.alert("Ошибка", "Введите количество литров");
+    const litersNumber = Number(liters.replace(",", "."));
+    const priceNumber = Number(pricePerLiter.replace(",", "."));
+    const odometerNumber = odometer.trim() ? Number(odometer) : null;
+
+    if (!fuelDate.trim()) {
+      Alert.alert("Ошибка", "Введите дату заправки");
       return;
     }
 
-    if (!pricePerLiter.trim()) {
-      Alert.alert("Ошибка", "Введите цену за литр");
+    if (Number.isNaN(Date.parse(fuelDate))) {
+      Alert.alert("Ошибка", "Некорректная дата. Используй формат YYYY-MM-DD");
       return;
     }
 
-    if (!totalPrice.trim()) {
-      Alert.alert("Ошибка", "Введите общую сумму");
+    if (Number.isNaN(litersNumber) || litersNumber <= 0) {
+      Alert.alert("Ошибка", "Количество литров должно быть больше 0");
+      return;
+    }
+
+    if (Number.isNaN(priceNumber) || priceNumber <= 0) {
+      Alert.alert("Ошибка", "Цена за литр должна быть больше 0");
+      return;
+    }
+
+    if (
+      odometer.trim() &&
+      (Number.isNaN(odometerNumber) || odometerNumber === null || odometerNumber < 0)
+    ) {
+      Alert.alert("Ошибка", "Пробег не может быть отрицательным");
       return;
     }
 
@@ -57,16 +101,16 @@ export default function CreateFuelScreen() {
 
       await createFuelLog({
         carId,
-        liters: liters.trim(),
-        pricePerLiter: pricePerLiter.trim(),
-        totalPrice: totalPrice.trim(),
-        odometer: odometer.trim() ? Number(odometer) : null,
+        fuelDate,
+        liters: litersNumber,
+        pricePerLiter: priceNumber,
+        odometer: odometerNumber,
+        fullTank,
+        station: station.trim() ? station.trim() : null,
       });
 
       navigation.goBack();
     } catch (error) {
-      console.log("Create fuel log error:", error);
-
       const message =
         error instanceof Error ? error.message : "Не удалось создать запись";
 
@@ -78,6 +122,14 @@ export default function CreateFuelScreen() {
 
   return (
     <View style={styles.container}>
+      <Text style={styles.label}>Fuel date</Text>
+      <TextInput
+        style={styles.input}
+        value={fuelDate}
+        onChangeText={setFuelDate}
+        placeholder="YYYY-MM-DD"
+      />
+
       <Text style={styles.label}>Liters</Text>
       <TextInput
         style={styles.input}
@@ -97,15 +149,13 @@ export default function CreateFuelScreen() {
       />
 
       <Text style={styles.label}>Total price</Text>
-      <TextInput
-        style={styles.input}
-        value={totalPrice}
-        onChangeText={setTotalPrice}
-        keyboardType="decimal-pad"
-        placeholder="2276.10"
-      />
+      <View style={styles.readonlyBox}>
+        <Text style={styles.readonlyText}>
+          {totalPricePreview || "—"}
+        </Text>
+      </View>
 
-      <Text style={styles.label}>Odometer</Text>
+      <Text style={styles.label}>Odometer (optional)</Text>
       <TextInput
         style={styles.input}
         value={odometer}
@@ -113,6 +163,19 @@ export default function CreateFuelScreen() {
         keyboardType="number-pad"
         placeholder="154000"
       />
+
+      <Text style={styles.label}>Station (optional)</Text>
+      <TextInput
+        style={styles.input}
+        value={station}
+        onChangeText={setStation}
+        placeholder="OKKO"
+      />
+
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>Full tank</Text>
+        <Switch value={fullTank} onValueChange={setFullTank} />
+      </View>
 
       <TouchableOpacity
         style={[styles.button, saving && styles.buttonDisabled]}
@@ -151,6 +214,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     backgroundColor: "#fafafa",
+  },
+
+  readonlyBox: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: "#f2f2f2",
+  },
+
+  readonlyText: {
+    fontSize: 16,
+    color: "#333",
+  },
+
+  switchRow: {
+    marginTop: 18,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: "500",
   },
 
   button: {
