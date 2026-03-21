@@ -2,11 +2,11 @@ import { View, Text, Button, Alert } from "react-native";
 import { useAuth } from "../features/auth/context/AuthContext";
 import { apiRequest } from "../api/client";
 
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../navigation/AppNavigator";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { MainTabParamList } from "../navigation/MainTabs";
 
 type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, "Home">;
+  navigation: BottomTabNavigationProp<MainTabParamList, "Home">;
 };
 
 export default function HomeScreen({ navigation }: Props) {
@@ -27,12 +27,12 @@ export default function HomeScreen({ navigation }: Props) {
 
       <Button title="Logout" onPress={logout} />
 
-      <Button title="Test Protected Route" onPress={testRequest} />
-
       <Button
         title="Open Weight Tracker"
         onPress={() => navigation.navigate("Weights")}
       />
+
+      <Button title="Test request" onPress={testRequest} />
     </View>
   );
 }

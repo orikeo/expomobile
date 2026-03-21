@@ -9,7 +9,6 @@ import { Ionicons } from "@expo/vector-icons";
 import CarsStack from "./CarsStack";
 import HomeScreen from "../screens/HomeScreen";
 import WeightScreen from "../features/weight/screens/WeightScreen";
-import CarsScreen from "../features/cars/screens/CarsScreen";
 
 /**
  * Типы навигации
