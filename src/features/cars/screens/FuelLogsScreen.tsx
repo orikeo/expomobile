@@ -19,7 +19,11 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { CarsStackParamList } from "../../../navigation/CarsStack";
-import { getFuelLogsByCarId, FuelLog } from "../api/fuel.api";
+import {
+  getFuelLogsByCarId,
+  deleteFuelLog,
+  FuelLog,
+} from "../api/fuel.api";
 
 type RouteType = RouteProp<CarsStackParamList, "FuelLogs">;
 type NavigationType = NativeStackNavigationProp<CarsStackParamList, "FuelLogs">;
@@ -32,16 +36,14 @@ export default function FuelLogsScreen() {
 
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function loadFuelLogs() {
     try {
       setLoading(true);
-
       const data = await getFuelLogsByCarId(carId);
       setFuelLogs(data);
     } catch (error) {
-      console.log("Load fuel logs error:", error);
-
       const message =
         error instanceof Error ? error.message : "Не удалось загрузить заправки";
 
@@ -75,7 +77,40 @@ export default function FuelLogsScreen() {
     }, [carId])
   );
 
+  function handleDeletePress(item: FuelLog) {
+    Alert.alert(
+      "Удалить запись?",
+      `Заправка от ${item.fuelDate} будет удалена`,
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Удалить",
+          style: "destructive",
+          onPress: () => confirmDelete(item.id),
+        },
+      ]
+    );
+  }
+
+  async function confirmDelete(id: string) {
+    try {
+      setDeletingId(id);
+      await deleteFuelLog(id);
+
+      setFuelLogs((prev) => prev.filter((item) => item.id !== id));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Не удалось удалить запись";
+
+      Alert.alert("Ошибка", message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   function renderItem({ item }: { item: FuelLog }) {
+    const isDeleting = deletingId === item.id;
+
     return (
       <View style={styles.card}>
         <View style={styles.rowBetween}>
@@ -94,17 +129,9 @@ export default function FuelLogsScreen() {
         </View>
 
         <Text style={styles.cardText}>Liters: {item.liters}</Text>
-
-        <Text style={styles.cardText}>
-          Price per liter: {item.pricePerLiter}
-        </Text>
-
+        <Text style={styles.cardText}>Price per liter: {item.pricePerLiter}</Text>
         <Text style={styles.cardText}>Total price: {item.totalPrice}</Text>
-
-        <Text style={styles.cardText}>
-          Odometer: {item.odometer ?? "—"}
-        </Text>
-
+        <Text style={styles.cardText}>Odometer: {item.odometer ?? "—"}</Text>
         <Text style={styles.cardText}>
           Station: {item.station ? item.station : "—"}
         </Text>
@@ -112,6 +139,16 @@ export default function FuelLogsScreen() {
         <Text style={styles.cardDate}>
           Created: {new Date(item.createdAt).toLocaleString()}
         </Text>
+
+        <TouchableOpacity
+          style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
+          onPress={() => handleDeletePress(item)}
+          disabled={isDeleting}
+        >
+          <Text style={styles.deleteButtonText}>
+            {isDeleting ? "Deleting..." : "Delete"}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -256,5 +293,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#888",
     marginTop: 8,
+    marginBottom: 12,
+  },
+
+  deleteButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#e74c3c",
+  },
+
+  deleteButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
   },
 });
