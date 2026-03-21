@@ -149,6 +149,27 @@ export default function FuelLogsScreen() {
             {isDeleting ? "Deleting..." : "Delete"}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+    style={styles.editButton}
+    onPress={() =>
+      navigation.navigate("EditFuel", {
+        fuelLog: item,
+        name,
+      })
+    }
+  >
+    <Text style={styles.editButtonText}>Edit</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
+    onPress={() => handleDeletePress(item)}
+    disabled={isDeleting}
+  >
+    <Text style={styles.deleteButtonText}>
+      {isDeleting ? "Deleting..." : "Delete"}
+    </Text>
+  </TouchableOpacity>
       </View>
     );
   }
@@ -313,4 +334,24 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.7,
   },
+
+  actionsRow: {
+  flexDirection: "row",
+  gap: 10,
+  marginTop: 4,
+},
+
+editButton: {
+  alignSelf: "flex-start",
+  paddingHorizontal: 14,
+  paddingVertical: 10,
+  borderRadius: 8,
+  backgroundColor: "#007AFF",
+},
+
+editButtonText: {
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: "600",
+},
 });

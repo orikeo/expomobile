@@ -5,6 +5,8 @@ import CarDetailsScreen from "../features/cars/screens/CarDetailsScreen";
 import FuelLogsScreen from "../features/cars/screens/FuelLogsScreen";
 import RepairsScreen from "../features/cars/screens/RepairsScreen";
 import CreateFuelScreen from "../features/cars/screens/CreateFuelScreen";
+import EditFuelScreen from "../features/cars/screens/EditFuelScreen";
+
 
 export type CarsStackParamList = {
   CarsList: undefined;
@@ -26,6 +28,22 @@ export type CarsStackParamList = {
 
   CreateFuel: {
     carId: string;
+    name: string;
+  };
+
+  EditFuel: {
+    fuelLog: {
+      id: string;
+      carId: string;
+      fuelDate: string;
+      odometer: number | null;
+      liters: string;
+      pricePerLiter: string;
+      totalPrice: string;
+      fullTank: boolean;
+      station: string | null;
+      createdAt: string;
+    };
     name: string;
   };
 };
@@ -64,6 +82,12 @@ export default function CarsStack() {
         component={CreateFuelScreen}
         options={{ title: "Add Fuel" }}
       />
+
+      <Stack.Screen
+  name="EditFuel"
+  component={EditFuelScreen}
+  options={{ title: "Edit Fuel" }}
+/>
     </Stack.Navigator>
   );
 }
