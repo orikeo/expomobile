@@ -7,6 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -31,6 +34,9 @@
       "eas": {
         "projectId": "dc004ea5-7013-4a9f-94c6-af0c24cc9de4"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/dc004ea5-7013-4a9f-94c6-af0c24cc9de4"
     }
   }
 }

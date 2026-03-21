@@ -8,46 +8,26 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../../../navigation/AppNavigator";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { register } from "../api/auth.api";
 import { useAuth } from "../context/AuthContext";
-import { login as loginRequest } from "../api/auth.api";
 
-/**
- * Тип navigation для этого экрана
- */
-type LoginScreenNavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  "Login"
->;
-
-type Props = {
-  navigation: LoginScreenNavigationProp;
+type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
 };
 
-export default function LoginScreen({ navigation }: Props) {
-  /**
-   * Локальное состояние формы
-   */
+type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
+
+export default function RegisterScreen({ navigation }: Props) {
+  const { login: saveTokens } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  /**
-   * Состояние загрузки
-   */
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  /**
-   * Берём функцию login из AuthContext
-   * Она сохраняет токены и переводит пользователя в приложение
-   */
-  const { login } = useAuth();
-
-  /**
-   * Обработчик входа
-   */
-  const handleLogin = async () => {
+  async function handleRegister() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail) {
@@ -60,79 +40,83 @@ export default function LoginScreen({ navigation }: Props) {
       return;
     }
 
+    if (password.length < 6) {
+      Alert.alert("Ошибка", "Пароль должен быть не короче 6 символов");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Ошибка", "Пароли не совпадают");
+      return;
+    }
+
     try {
       setLoading(true);
 
-      /**
-       * Отправляем запрос на backend
-       */
-      const data = await loginRequest({
+      const data = await register({
         email: normalizedEmail,
         password,
       });
 
-      /**
-       * Сохраняем токены через AuthContext
-       */
-      await login(data.accessToken, data.refreshToken);
-
-      /**
-       * После этого навигация переключится сама,
-       * если AppNavigator завязан на isAuthenticated
-       */
+      await saveTokens(data.accessToken, data.refreshToken);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Не удалось войти";
+        error instanceof Error ? error.message : "Не удалось зарегистрироваться";
 
-      Alert.alert("Ошибка входа", message);
+      Alert.alert("Ошибка", message);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Вход</Text>
+      <Text style={styles.title}>Регистрация</Text>
 
       <TextInput
+        style={styles.input}
         placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
-        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
       />
 
       <TextInput
+        style={styles.input}
         placeholder="Пароль"
+        secureTextEntry
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
+      />
+
+      <TextInput
         style={styles.input}
+        placeholder="Повторите пароль"
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
       />
 
       <TouchableOpacity
         style={[styles.button, loading && styles.buttonDisabled]}
-        onPress={handleLogin}
+        onPress={handleRegister}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>Войти</Text>
+          <Text style={styles.buttonText}>Зарегистрироваться</Text>
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-        <Text style={styles.link}>Нет аккаунта? Зарегистрироваться</Text>
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <Text style={styles.link}>Уже есть аккаунт? Войти</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-/**
- * Стили экрана
- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
