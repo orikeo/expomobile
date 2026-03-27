@@ -23,7 +23,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Home Screen</Text>
+      <Text>Home Screen v1</Text>
 
       <Button title="Logout" onPress={logout} />
 
@@ -32,7 +32,7 @@ export default function HomeScreen({ navigation }: Props) {
         onPress={() => navigation.navigate("Weights")}
       />
 
-      <Button title="Test request" onPress={testRequest} />
+    
     </View>
   );
 }

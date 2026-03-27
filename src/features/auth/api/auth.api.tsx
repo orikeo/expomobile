@@ -1,8 +1,20 @@
 import { apiRequest } from "../../../api/client";
 
+/**
+ * =========================================================
+ * AUTH RESPONSE TYPES
+ * =========================================================
+ */
 export type AuthResponse = {
   accessToken: string;
   refreshToken: string;
+};
+
+export type RegisterResponse = {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: string;
 };
 
 export type LoginDto = {
@@ -15,15 +27,34 @@ export type RegisterDto = {
   password: string;
 };
 
+/**
+ * =========================================================
+ * LOGIN
+ * =========================================================
+ *
+ * Backend возвращает accessToken + refreshToken
+ */
 export async function login(data: LoginDto): Promise<AuthResponse> {
-  return apiRequest("/auth/login", {
+  return apiRequest<AuthResponse>("/auth/login", {
     method: "POST",
     body: data,
   });
 }
 
-export async function register(data: RegisterDto): Promise<AuthResponse> {
-  return apiRequest("/auth/register", {
+/**
+ * =========================================================
+ * REGISTER
+ * =========================================================
+ *
+ * Сейчас backend после регистрации возвращает не токены,
+ * а объект созданного пользователя.
+ *
+ * Поэтому тип должен соответствовать реальному контракту.
+ */
+export async function register(
+  data: RegisterDto
+): Promise<RegisterResponse> {
+  return apiRequest<RegisterResponse>("/auth/register", {
     method: "POST",
     body: data,
   });
