@@ -1,12 +1,15 @@
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import {
+  DailyCheckReminderSettings,
+  getDailyCheckReminderSettings,
+} from "./dailyCheckReminderSettings";
 
 /**
  * =========================================================
  * CONSTANTS
  * =========================================================
  */
-
 const DAILY_CHECK_NOTIFICATION_TYPE = "daily-check-reminder";
 const ANDROID_CHANNEL_ID = "daily-check-reminders";
 
@@ -14,9 +17,6 @@ const ANDROID_CHANNEL_ID = "daily-check-reminders";
  * =========================================================
  * NOTIFICATION HANDLER
  * =========================================================
- *
- * Определяет, как уведомления показываются,
- * когда приложение уже открыто.
  */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -32,8 +32,6 @@ Notifications.setNotificationHandler({
  * =========================================================
  * ANDROID CHANNEL
  * =========================================================
- *
- * Для Android желательно создать отдельный канал.
  */
 async function ensureAndroidChannel() {
   if (Platform.OS !== "android") {
@@ -53,10 +51,8 @@ async function ensureAndroidChannel() {
  * =========================================================
  * PERMISSIONS
  * =========================================================
- *
- * Проверяем/запрашиваем разрешение на уведомления.
  */
-async function ensureNotificationPermissions(): Promise<boolean> {
+export async function ensureNotificationPermissions(): Promise<boolean> {
   const currentPermissions = await Notifications.getPermissionsAsync();
 
   if (currentPermissions.granted) {
@@ -72,9 +68,6 @@ async function ensureNotificationPermissions(): Promise<boolean> {
  * =========================================================
  * CANCEL OLD DAILY REMINDERS
  * =========================================================
- *
- * Чтобы не плодить дубликаты, перед новым планированием
- * удаляем старые daily-check напоминания.
  */
 export async function cancelDailyCheckReminders(): Promise<void> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -94,16 +87,10 @@ export async function cancelDailyCheckReminders(): Promise<void> {
  * =========================================================
  * SCHEDULE DAILY REMINDER
  * =========================================================
- *
- * Простая версия:
- * каждый день в 23:00 напоминаем заполнить отчёт.
- *
- * Позже можно сделать более умно:
- * проверять, заполнен ли день, и только тогда напоминать.
  */
 export async function scheduleDailyCheckReminder(
-  hour: number = 23,
-  minute: number = 0
+  hour: number,
+  minute: number
 ): Promise<void> {
   await cancelDailyCheckReminders();
 
@@ -116,31 +103,32 @@ export async function scheduleDailyCheckReminder(
         type: DAILY_CHECK_NOTIFICATION_TYPE,
       },
     },
-
-    /**
-     * Для expo-notifications такой вариант триггера
-     * обычно самый прямой и удобный.
-     */
     trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
       minute,
-      repeats: true,
-    } as Notifications.NotificationTriggerInput,
+    },
   });
 }
 
 /**
  * =========================================================
- * INITIALIZE REMINDER
+ * APPLY SETTINGS
  * =========================================================
  *
- * Главная функция для App.tsx:
- * - создаёт Android channel
- * - запрашивает разрешение
- * - ставит ежедневное уведомление
+ * Применяет конкретные настройки:
+ * - если enabled = false -> отменяет уведомления
+ * - если enabled = true  -> проверяет permission и планирует уведомление
  */
-export async function initializeDailyCheckReminder(): Promise<void> {
+export async function applyDailyCheckReminderSettings(
+  settings: DailyCheckReminderSettings
+): Promise<void> {
   await ensureAndroidChannel();
+
+  if (!settings.enabled) {
+    await cancelDailyCheckReminders();
+    return;
+  }
 
   const hasPermission = await ensureNotificationPermissions();
 
@@ -149,5 +137,17 @@ export async function initializeDailyCheckReminder(): Promise<void> {
     return;
   }
 
-  await scheduleDailyCheckReminder(23, 0);
+  await scheduleDailyCheckReminder(settings.hour, settings.minute);
+}
+
+/**
+ * =========================================================
+ * INITIALIZE FROM STORAGE
+ * =========================================================
+ *
+ * Читаем настройки из storage и применяем их при старте приложения.
+ */
+export async function initializeDailyCheckReminder(): Promise<void> {
+  const settings = await getDailyCheckReminderSettings();
+  await applyDailyCheckReminderSettings(settings);
 }
