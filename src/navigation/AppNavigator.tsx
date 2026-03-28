@@ -1,3 +1,4 @@
+import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { useAuth } from "../features/auth/context/AuthContext";
@@ -7,7 +8,13 @@ import RegisterScreen from "../features/auth/screens/RegisterScreen";
 import MainTabs from "./MainTabs";
 
 /**
- * тип всех экранов root stack
+ * =========================================================
+ * ROOT STACK PARAM LIST
+ * =========================================================
+ *
+ * Корневой stack приложения:
+ * - экраны авторизации
+ * - основная вкладочная навигация
  */
 export type RootStackParamList = {
   Login: undefined;
@@ -16,7 +23,9 @@ export type RootStackParamList = {
 };
 
 /**
- * создаём stack с типами
+ * =========================================================
+ * STACK
+ * =========================================================
  */
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,9 +33,23 @@ export default function AppNavigator() {
   const { accessToken, isLoading } = useAuth();
 
   /**
-   * пока проверяем авторизацию
+   * Пока AuthContext проверяет токены и сессию,
+   * лучше показать простой loader,
+   * а не просто вернуть null.
    */
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -34,14 +57,8 @@ export default function AppNavigator() {
         <Stack.Screen name="MainTabs" component={MainTabs} />
       ) : (
         <>
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-          />
-          <Stack.Screen
-            name="Register"
-            component={RegisterScreen}
-          />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
         </>
       )}
     </Stack.Navigator>
