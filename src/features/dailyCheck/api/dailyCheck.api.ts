@@ -3,6 +3,7 @@ import {
   CreateDailyCheckItemPayload,
   DailyCheckDayResponse,
   DailyCheckItem,
+  DailyCheckRangeDay,
   SaveDailyCheckDayPayload,
   UpdateDailyCheckItemPayload,
 } from "../dailyCheck.types";
@@ -39,13 +40,13 @@ export async function saveDailyCheckDay(
  * GET RANGE
  * =========================================================
  *
- * Пока оставим generic, позже затипизируем под overview.
+ * Нужен для overview за 2 недели.
  */
-export async function getDailyCheckRange<T = unknown>(
+export async function getDailyCheckRange(
   from: string,
   to: string
-): Promise<T> {
-  return apiRequest<T>(
+): Promise<DailyCheckRangeDay[]> {
+  return apiRequest<DailyCheckRangeDay[]>(
     `/daily-check/range?from=${encodeURIComponent(from)}&to=${encodeURIComponent(
       to
     )}`
@@ -56,8 +57,6 @@ export async function getDailyCheckRange<T = unknown>(
  * =========================================================
  * GET ITEMS
  * =========================================================
- *
- * Получить все привычки пользователя.
  */
 export async function getDailyCheckItems(): Promise<DailyCheckItem[]> {
   return apiRequest<DailyCheckItem[]>("/daily-check/items");
@@ -96,6 +95,9 @@ export async function updateDailyCheckItem(
  * =========================================================
  * DELETE ITEM
  * =========================================================
+ *
+ * Пока оставим в API на будущее / для dev-нужд,
+ * но в UI не используем.
  */
 export async function deleteDailyCheckItem(itemId: string): Promise<void> {
   await apiRequest<void>(`/daily-check/items/${itemId}`, {

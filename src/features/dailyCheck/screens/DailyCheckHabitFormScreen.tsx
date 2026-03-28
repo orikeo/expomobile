@@ -14,14 +14,10 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import {
   createDailyCheckItem,
-  deleteDailyCheckItem,
   getDailyCheckItems,
   updateDailyCheckItem,
 } from "../api/dailyCheck.api";
-import {
-  DailyCheckAppliesMode,
-  DailyCheckItem,
-} from "../dailyCheck.types";
+import { DailyCheckAppliesMode } from "../dailyCheck.types";
 import { DailyCheckStackParamList } from "../../../navigation/DailyCheckNavigator";
 
 type Props = NativeStackScreenProps<
@@ -29,12 +25,12 @@ type Props = NativeStackScreenProps<
   "DailyHabitForm"
 >;
 
-type WeekDayOption = {
-  value: number;
-  label: string;
-};
-
-const WEEK_DAYS: WeekDayOption[] = [
+/**
+ * =========================================================
+ * WEEKDAY OPTIONS
+ * =========================================================
+ */
+const WEEK_DAYS = [
   { value: 1, label: "Пн" },
   { value: 2, label: "Вт" },
   { value: 3, label: "Ср" },
@@ -44,6 +40,11 @@ const WEEK_DAYS: WeekDayOption[] = [
   { value: 7, label: "Вс" },
 ];
 
+/**
+ * =========================================================
+ * SCREEN
+ * =========================================================
+ */
 export default function DailyCheckHabitFormScreen({
   navigation,
   route,
@@ -51,43 +52,51 @@ export default function DailyCheckHabitFormScreen({
   const isEditMode = route.params.mode === "edit";
   const editingItemId = route.params.mode === "edit" ? route.params.itemId : null;
 
+  /**
+   * =========================================================
+   * FORM STATE
+   * =========================================================
+   */
   const [loading, setLoading] = useState<boolean>(isEditMode);
   const [saving, setSaving] = useState<boolean>(false);
-  const [deleting, setDeleting] = useState<boolean>(false);
 
   const [title, setTitle] = useState<string>("");
   const [emoji, setEmoji] = useState<string>("");
   const [appliesMode, setAppliesMode] =
     useState<DailyCheckAppliesMode>("every_day");
   const [weekDays, setWeekDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
-  const [sortOrder, setSortOrder] = useState<string>("0");
   const [isActive, setIsActive] = useState<boolean>(true);
+  const [sortOrder, setSortOrder] = useState<string>("0");
 
   /**
    * =========================================================
-   * LOAD EDIT ITEM
+   * LOAD ITEM FOR EDIT
    * =========================================================
    *
-   * У тебя пока нет отдельного GET /daily-check/items/:id,
-   * поэтому для режима редактирования просто грузим список
-   * и находим нужную привычку по id.
+   * Пока отдельного GET /items/:id нет,
+   * поэтому просто получаем список и ищем item по id.
    */
-  const loadEditItem = useCallback(async () => {
+  const loadEditingItem = useCallback(async () => {
     if (!isEditMode || !editingItemId) {
       return;
     }
 
     try {
       const items = await getDailyCheckItems();
-      const foundItem = items.find((item) => item.id === editingItemId);
+      const item = items.find((current) => current.id === editingItemId);
 
-      if (!foundItem) {
+      if (!item) {
         Alert.alert("Ошибка", "Привычка не найдена");
         navigation.goBack();
         return;
       }
 
-      fillFormFromItem(foundItem);
+      setTitle(item.title);
+      setEmoji(item.emoji ?? "");
+      setAppliesMode(item.appliesMode);
+      setWeekDays(item.weekDays);
+      setIsActive(item.isActive);
+      setSortOrder(String(item.sortOrder));
     } catch (error) {
       console.error("Failed to load habit for edit:", error);
       Alert.alert("Ошибка", "Не удалось загрузить привычку");
@@ -95,35 +104,19 @@ export default function DailyCheckHabitFormScreen({
     }
   }, [editingItemId, isEditMode, navigation]);
 
-  /**
-   * Заполняем форму данными привычки.
-   */
-  const fillFormFromItem = (item: DailyCheckItem) => {
-    setTitle(item.title);
-    setEmoji(item.emoji ?? "");
-    setAppliesMode(item.appliesMode);
-    setWeekDays(item.weekDays);
-    setSortOrder(String(item.sortOrder));
-    setIsActive(item.isActive);
-  };
-
   useEffect(() => {
-    navigation.setOptions({
-      title: isEditMode ? "Редактировать привычку" : "Новая привычка",
-    });
-
     const run = async () => {
       if (!isEditMode) {
         return;
       }
 
       setLoading(true);
-      await loadEditItem();
+      await loadEditingItem();
       setLoading(false);
     };
 
     run();
-  }, [isEditMode, loadEditItem, navigation]);
+  }, [isEditMode, loadEditingItem]);
 
   /**
    * =========================================================
@@ -131,71 +124,67 @@ export default function DailyCheckHabitFormScreen({
    * =========================================================
    */
 
-  const toggleWeekDay = (day: number) => {
+  /**
+   * Для every_day автоматически используем все дни недели.
+   */
+  const effectiveWeekDays = useMemo(() => {
+    if (appliesMode === "every_day") {
+      return [1, 2, 3, 4, 5, 6, 7];
+    }
+
+    return [...weekDays].sort((a, b) => a - b);
+  }, [appliesMode, weekDays]);
+
+  const toggleWeekDay = useCallback((day: number) => {
     setWeekDays((prev) => {
       if (prev.includes(day)) {
-        return prev.filter((item) => item !== day).sort((a, b) => a - b);
+        return prev.filter((current) => current !== day).sort((a, b) => a - b);
       }
 
       return [...prev, day].sort((a, b) => a - b);
     });
-  };
+  }, []);
 
-  const normalizedSortOrder = useMemo(() => {
-    const parsed = Number(sortOrder);
-
-    if (!Number.isInteger(parsed)) {
-      return 0;
-    }
-
-    return parsed;
-  }, [sortOrder]);
-
-  /**
-   * =========================================================
-   * VALIDATION
-   * =========================================================
-   */
-
-  const validateForm = () => {
+  const validateForm = useCallback((): string | null => {
     if (!title.trim()) {
-      Alert.alert("Ошибка", "Название привычки обязательно");
-      return false;
+      return "Название привычки обязательно";
     }
 
-    if (appliesMode === "selected_days" && weekDays.length === 0) {
-      Alert.alert("Ошибка", "Выбери хотя бы один день недели");
-      return false;
+    if (appliesMode === "selected_days" && effectiveWeekDays.length === 0) {
+      return "Выбери хотя бы один день недели";
     }
 
-    return true;
-  };
+    if (!/^-?\d+$/.test(sortOrder.trim())) {
+      return "sortOrder должен быть целым числом";
+    }
+
+    return null;
+  }, [appliesMode, effectiveWeekDays.length, sortOrder, title]);
 
   /**
    * =========================================================
    * SAVE
    * =========================================================
    */
+  const handleSave = useCallback(async () => {
+    const validationError = validateForm();
 
-  const handleSave = async () => {
-    if (!validateForm()) {
+    if (validationError) {
+      Alert.alert("Ошибка", validationError);
       return;
     }
 
-    const payload = {
-      title: title.trim(),
-      emoji: emoji.trim() || null,
-      appliesMode,
-      weekDays:
-        appliesMode === "every_day"
-          ? [1, 2, 3, 4, 5, 6, 7]
-          : [...weekDays].sort((a, b) => a - b),
-      sortOrder: normalizedSortOrder,
-      isActive,
-    };
-
     try {
       setSaving(true);
+
+      const payload = {
+        title: title.trim(),
+        emoji: emoji.trim() || null,
+        appliesMode,
+        weekDays: effectiveWeekDays,
+        isActive,
+        sortOrder: Number(sortOrder.trim()),
+      };
 
       if (isEditMode && editingItemId) {
         await updateDailyCheckItem(editingItemId, payload);
@@ -205,72 +194,38 @@ export default function DailyCheckHabitFormScreen({
 
       Alert.alert(
         "Успешно",
-        isEditMode ? "Привычка обновлена" : "Привычка создана"
+        isEditMode ? "Привычка обновлена" : "Привычка создана",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.goBack(),
+          },
+        ]
       );
-
-      navigation.goBack();
     } catch (error) {
       console.error("Failed to save habit:", error);
       Alert.alert("Ошибка", "Не удалось сохранить привычку");
     } finally {
       setSaving(false);
     }
-  };
-
-  /**
-   * =========================================================
-   * DELETE
-   * =========================================================
-   */
-
-  const confirmDelete = () => {
-    if (!isEditMode || !editingItemId) {
-      return;
-    }
-
-    Alert.alert(
-      "Удалить привычку?",
-      "Это действие нельзя отменить.",
-      [
-        {
-          text: "Отмена",
-          style: "cancel",
-        },
-        {
-          text: "Удалить",
-          style: "destructive",
-          onPress: handleDelete,
-        },
-      ]
-    );
-  };
-
-  const handleDelete = async () => {
-    if (!editingItemId) {
-      return;
-    }
-
-    try {
-      setDeleting(true);
-
-      await deleteDailyCheckItem(editingItemId);
-
-      Alert.alert("Успешно", "Привычка удалена");
-      navigation.goBack();
-    } catch (error) {
-      console.error("Failed to delete habit:", error);
-      Alert.alert("Ошибка", "Не удалось удалить привычку");
-    } finally {
-      setDeleting(false);
-    }
-  };
+  }, [
+    appliesMode,
+    editingItemId,
+    effectiveWeekDays,
+    emoji,
+    isActive,
+    isEditMode,
+    navigation,
+    sortOrder,
+    title,
+    validateForm,
+  ]);
 
   /**
    * =========================================================
    * LOADING
    * =========================================================
    */
-
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -285,15 +240,18 @@ export default function DailyCheckHabitFormScreen({
    * RENDER
    * =========================================================
    */
-
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
+      <Text style={styles.title}>
+        {isEditMode ? "Редактирование привычки" : "Новая привычка"}
+      </Text>
+
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Название</Text>
+        <Text style={styles.label}>Название</Text>
         <TextInput
           style={styles.input}
           value={title}
@@ -304,7 +262,7 @@ export default function DailyCheckHabitFormScreen({
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Emoji</Text>
+        <Text style={styles.label}>Emoji</Text>
         <TextInput
           style={styles.input}
           value={emoji}
@@ -313,13 +271,10 @@ export default function DailyCheckHabitFormScreen({
           placeholderTextColor="#777"
           maxLength={8}
         />
-        <Text style={styles.helperText}>
-          Поле не обязательное, но помогает визуально.
-        </Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Когда показывать</Text>
+        <Text style={styles.label}>Режим применения</Text>
 
         <View style={styles.modeRow}>
           <TouchableOpacity
@@ -327,10 +282,7 @@ export default function DailyCheckHabitFormScreen({
               styles.modeButton,
               appliesMode === "every_day" && styles.modeButtonSelected,
             ]}
-            onPress={() => {
-              setAppliesMode("every_day");
-              setWeekDays([1, 2, 3, 4, 5, 6, 7]);
-            }}
+            onPress={() => setAppliesMode("every_day")}
           >
             <Text
               style={[
@@ -347,23 +299,12 @@ export default function DailyCheckHabitFormScreen({
               styles.modeButton,
               appliesMode === "selected_days" && styles.modeButtonSelected,
             ]}
-            onPress={() => {
-              setAppliesMode("selected_days");
-
-              /**
-               * Если до этого было every_day,
-               * можно оставить все дни выбранными.
-               */
-              if (weekDays.length === 0) {
-                setWeekDays([1, 2, 3, 4, 5, 6, 7]);
-              }
-            }}
+            onPress={() => setAppliesMode("selected_days")}
           >
             <Text
               style={[
                 styles.modeButtonText,
-                appliesMode === "selected_days" &&
-                  styles.modeButtonTextSelected,
+                appliesMode === "selected_days" && styles.modeButtonTextSelected,
               ]}
             >
               Выбранные дни
@@ -374,25 +315,25 @@ export default function DailyCheckHabitFormScreen({
 
       {appliesMode === "selected_days" && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Дни недели</Text>
+          <Text style={styles.label}>Дни недели</Text>
 
           <View style={styles.weekDaysRow}>
             {WEEK_DAYS.map((day) => {
-              const selected = weekDays.includes(day.value);
+              const isSelected = weekDays.includes(day.value);
 
               return (
                 <TouchableOpacity
                   key={day.value}
                   style={[
                     styles.weekDayButton,
-                    selected && styles.weekDayButtonSelected,
+                    isSelected && styles.weekDayButtonSelected,
                   ]}
                   onPress={() => toggleWeekDay(day.value)}
                 >
                   <Text
                     style={[
                       styles.weekDayButtonText,
-                      selected && styles.weekDayButtonTextSelected,
+                      isSelected && styles.weekDayButtonTextSelected,
                     ]}
                   >
                     {day.label}
@@ -405,26 +346,24 @@ export default function DailyCheckHabitFormScreen({
       )}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Порядок</Text>
+        <Text style={styles.label}>Порядок сортировки</Text>
         <TextInput
           style={styles.input}
           value={sortOrder}
           onChangeText={setSortOrder}
-          keyboardType="numeric"
           placeholder="0"
           placeholderTextColor="#777"
+          keyboardType="numeric"
         />
-        <Text style={styles.helperText}>
-          Чем меньше число, тем выше привычка в списке.
-        </Text>
       </View>
 
       <View style={styles.section}>
         <View style={styles.switchRow}>
-          <View style={styles.switchTextWrapper}>
-            <Text style={styles.sectionTitle}>Активна</Text>
+          <View style={styles.switchTextBlock}>
+            <Text style={styles.label}>Активная привычка</Text>
             <Text style={styles.helperText}>
-              Если выключить, привычка не будет показываться в дневном отчёте.
+              Неактивная привычка не участвует в новых отчётах, но история по ней
+              сохраняется.
             </Text>
           </View>
 
@@ -445,18 +384,6 @@ export default function DailyCheckHabitFormScreen({
             : "Создать привычку"}
         </Text>
       </TouchableOpacity>
-
-      {isEditMode && (
-        <TouchableOpacity
-          style={[styles.deleteButton, deleting && styles.disabledButton]}
-          onPress={confirmDelete}
-          disabled={deleting}
-        >
-          <Text style={styles.deleteButtonText}>
-            {deleting ? "Удаление..." : "Удалить привычку"}
-          </Text>
-        </TouchableOpacity>
-      )}
     </ScrollView>
   );
 }
@@ -481,14 +408,26 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
   },
-  section: {
-    marginBottom: 22,
-  },
-  sectionTitle: {
+  title: {
     color: "#ffffff",
-    fontSize: 18,
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 20,
+  },
+  section: {
+    marginBottom: 18,
+  },
+  label: {
+    color: "#ffffff",
+    fontSize: 16,
     fontWeight: "600",
     marginBottom: 10,
+  },
+  helperText: {
+    color: "#aaaaaa",
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
   },
   input: {
     borderWidth: 1,
@@ -499,32 +438,24 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     backgroundColor: "#171717",
   },
-  helperText: {
-    color: "#9a9a9a",
-    fontSize: 13,
-    marginTop: 8,
-    lineHeight: 18,
-  },
   modeRow: {
-    flexDirection: "row",
     gap: 10,
   },
   modeButton: {
-    flex: 1,
     borderWidth: 1,
     borderColor: "#444",
-    backgroundColor: "#171717",
     borderRadius: 12,
     paddingVertical: 14,
-    alignItems: "center",
+    paddingHorizontal: 14,
+    backgroundColor: "#171717",
   },
   modeButtonSelected: {
     borderColor: "#999",
-    backgroundColor: "#2b2b2b",
+    backgroundColor: "#2a2a2a",
   },
   modeButtonText: {
     color: "#cccccc",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
   },
   modeButtonTextSelected: {
@@ -536,18 +467,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   weekDayButton: {
-    minWidth: 52,
+    minWidth: 44,
     borderWidth: 1,
     borderColor: "#444",
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    alignItems: "center",
     backgroundColor: "#171717",
+    alignItems: "center",
   },
   weekDayButtonSelected: {
     borderColor: "#999",
-    backgroundColor: "#2b2b2b",
+    backgroundColor: "#2a2a2a",
   },
   weekDayButtonText: {
     color: "#cccccc",
@@ -560,31 +491,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
   },
-  switchTextWrapper: {
+  switchTextBlock: {
     flex: 1,
   },
   saveButton: {
+    marginTop: 10,
     backgroundColor: "#2d2d2d",
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
-    marginTop: 6,
   },
   saveButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  deleteButton: {
-    backgroundColor: "#4a2020",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  deleteButtonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "700",

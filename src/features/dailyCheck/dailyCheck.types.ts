@@ -9,9 +9,6 @@ export type DailyCheckStatus = "yes" | "no" | "skipped";
  * =========================================================
  * DAILY CHECK APPLIES MODE
  * =========================================================
- *
- * every_day     -> привычка показывается каждый день
- * selected_days -> привычка показывается только в выбранные дни недели
  */
 export type DailyCheckAppliesMode = "every_day" | "selected_days";
 
@@ -32,8 +29,6 @@ export interface DailyCheckDayReport {
  * =========================================================
  * DAILY CHECK ITEM
  * =========================================================
- *
- * Полный тип привычки, который приходит с backend.
  */
 export interface DailyCheckItem {
   id: string;
@@ -52,19 +47,15 @@ export interface DailyCheckItem {
  * =========================================================
  * DAY ITEM FROM BACKEND
  * =========================================================
- *
- * Один пункт привычки, уже применённый к конкретному дню.
  */
 export interface DailyCheckDayItem {
   id: string;
   title: string;
   emoji: string | null;
-
   appliesMode: DailyCheckAppliesMode;
   weekDays: number[];
   sortOrder: number;
   isActive: boolean;
-
   status: DailyCheckStatus | null;
   skipReason: string | null;
 }
@@ -78,6 +69,26 @@ export interface DailyCheckDayResponse {
   date: string;
   report: DailyCheckDayReport | null;
   items: DailyCheckDayItem[];
+}
+
+/**
+ * =========================================================
+ * RANGE DAY SUMMARY
+ * =========================================================
+ *
+ * Это одна карточка дня для 2-недельного overview.
+ */
+export interface DailyCheckRangeDay {
+  date: string;
+  moodScore: number | null;
+  summary: string | null;
+  note: string | null;
+  habitsTotal: number;
+  yesCount: number;
+  noCount: number;
+  skippedCount: number;
+  completionRate: number;
+  finalScore: number;
 }
 
 /**
