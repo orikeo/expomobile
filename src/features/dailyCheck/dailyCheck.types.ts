@@ -2,25 +2,23 @@
  * =========================================================
  * DAILY CHECK STATUS
  * =========================================================
- *
- * Возможные состояния привычки за день:
- * - yes      -> выполнил
- * - no       -> не выполнил
- * - skipped  -> не учитывается, но с причиной
  */
 export type DailyCheckStatus = "yes" | "no" | "skipped";
 
 /**
  * =========================================================
- * DAY REPORT
+ * DAILY CHECK APPLIES MODE
  * =========================================================
  *
- * Общая запись дня:
- * - настроение
- * - комментарий к настроению
- * - краткий итог дня
- * - заметка
- * - музыка дня
+ * every_day     -> привычка показывается каждый день
+ * selected_days -> привычка показывается только в выбранные дни недели
+ */
+export type DailyCheckAppliesMode = "every_day" | "selected_days";
+
+/**
+ * =========================================================
+ * DAY REPORT
+ * =========================================================
  */
 export interface DailyCheckDayReport {
   moodScore: number | null;
@@ -32,21 +30,37 @@ export interface DailyCheckDayReport {
 
 /**
  * =========================================================
+ * DAILY CHECK ITEM
+ * =========================================================
+ *
+ * Полный тип привычки, который приходит с backend.
+ */
+export interface DailyCheckItem {
+  id: string;
+  userId: string;
+  title: string;
+  emoji: string | null;
+  appliesMode: DailyCheckAppliesMode;
+  weekDays: number[];
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * =========================================================
  * DAY ITEM FROM BACKEND
  * =========================================================
  *
- * Один пункт привычки, который backend возвращает для дня.
- *
- * Здесь я оставил все поля, которые backend сейчас отдаёт.
- * Даже если часть из них пока не нужна на экране,
- * лучше типизировать полностью.
+ * Один пункт привычки, уже применённый к конкретному дню.
  */
 export interface DailyCheckDayItem {
   id: string;
   title: string;
   emoji: string | null;
 
-  appliesMode: "every_day" | "selected_days";
+  appliesMode: DailyCheckAppliesMode;
   weekDays: number[];
   sortOrder: number;
   isActive: boolean;
@@ -70,8 +84,6 @@ export interface DailyCheckDayResponse {
  * =========================================================
  * SAVE ENTRY PAYLOAD
  * =========================================================
- *
- * Что отправляем по одной привычке при сохранении дня.
  */
 export interface SaveDailyCheckEntryPayload {
   itemId: string;
@@ -83,8 +95,6 @@ export interface SaveDailyCheckEntryPayload {
  * =========================================================
  * SAVE DAY PAYLOAD
  * =========================================================
- *
- * Полный payload для PUT /daily-check/day
  */
 export interface SaveDailyCheckDayPayload {
   date: string;
@@ -100,13 +110,31 @@ export interface SaveDailyCheckDayPayload {
 
 /**
  * =========================================================
+ * CREATE / UPDATE HABIT PAYLOADS
+ * =========================================================
+ */
+export interface CreateDailyCheckItemPayload {
+  title: string;
+  emoji?: string | null;
+  appliesMode?: DailyCheckAppliesMode;
+  weekDays?: number[];
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateDailyCheckItemPayload {
+  title?: string;
+  emoji?: string | null;
+  appliesMode?: DailyCheckAppliesMode;
+  weekDays?: number[];
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+/**
+ * =========================================================
  * LOCAL UI ITEM STATE
  * =========================================================
- *
- * Локальный тип для состояния экрана.
- * По сути это упрощённая версия backend item.
- *
- * Мы не тянем сюда лишние поля, которые сейчас не нужны UI.
  */
 export interface DailyCheckDayItemState {
   id: string;

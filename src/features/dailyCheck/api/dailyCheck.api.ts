@@ -1,16 +1,16 @@
 import { apiRequest } from "../../../api/client";
 import {
+  CreateDailyCheckItemPayload,
   DailyCheckDayResponse,
+  DailyCheckItem,
   SaveDailyCheckDayPayload,
+  UpdateDailyCheckItemPayload,
 } from "../dailyCheck.types";
 
 /**
  * =========================================================
  * GET DAY
  * =========================================================
- *
- * Получаем данные отчёта за конкретный день.
- * Backend ждёт дату в формате YYYY-MM-DD.
  */
 export async function getDailyCheckDay(
   date: string
@@ -24,10 +24,6 @@ export async function getDailyCheckDay(
  * =========================================================
  * SAVE DAY
  * =========================================================
- *
- * Сохраняем запись дня:
- * - report
- * - entries по привычкам
  */
 export async function saveDailyCheckDay(
   payload: SaveDailyCheckDayPayload
@@ -43,7 +39,7 @@ export async function saveDailyCheckDay(
  * GET RANGE
  * =========================================================
  *
- * Нужен для будущего overview / heatmap за 2 недели.
+ * Пока оставим generic, позже затипизируем под overview.
  */
 export async function getDailyCheckRange<T = unknown>(
   from: string,
@@ -61,9 +57,48 @@ export async function getDailyCheckRange<T = unknown>(
  * GET ITEMS
  * =========================================================
  *
- * Полезно для экрана настроек привычек.
- * Пока можно не использовать, но лучше сразу иметь.
+ * Получить все привычки пользователя.
  */
-export async function getDailyCheckItems<T = unknown>(): Promise<T> {
-  return apiRequest<T>("/daily-check/items");
+export async function getDailyCheckItems(): Promise<DailyCheckItem[]> {
+  return apiRequest<DailyCheckItem[]>("/daily-check/items");
+}
+
+/**
+ * =========================================================
+ * CREATE ITEM
+ * =========================================================
+ */
+export async function createDailyCheckItem(
+  payload: CreateDailyCheckItemPayload
+): Promise<DailyCheckItem> {
+  return apiRequest<DailyCheckItem>("/daily-check/items", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+/**
+ * =========================================================
+ * UPDATE ITEM
+ * =========================================================
+ */
+export async function updateDailyCheckItem(
+  itemId: string,
+  payload: UpdateDailyCheckItemPayload
+): Promise<DailyCheckItem> {
+  return apiRequest<DailyCheckItem>(`/daily-check/items/${itemId}`, {
+    method: "PATCH",
+    body: payload,
+  });
+}
+
+/**
+ * =========================================================
+ * DELETE ITEM
+ * =========================================================
+ */
+export async function deleteDailyCheckItem(itemId: string): Promise<void> {
+  await apiRequest<void>(`/daily-check/items/${itemId}`, {
+    method: "DELETE",
+  });
 }

@@ -4,55 +4,35 @@ import { Ionicons } from "@expo/vector-icons";
 import CarsStack from "./CarsStack";
 import HomeScreen from "../screens/HomeScreen";
 import WeightScreen from "../features/weight/screens/WeightScreen";
-import DailyCheckScreen from "../features/dailyCheck/screens/DailyCheckScreen";
+import DailyCheckNavigator from "./DailyCheckNavigator";
 
 /**
  * =========================================================
  * MAIN TAB PARAM LIST
  * =========================================================
- *
- * Список всех вкладок нижней навигации.
  */
 export type MainTabParamList = {
   Home: undefined;
-  DailyCheck: undefined;
+  Daily: undefined;
   Weights: undefined;
   Cars: undefined;
 };
 
-/**
- * =========================================================
- * TAB NAVIGATOR
- * =========================================================
- */
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        /**
-         * Верхний header пока скрываем.
-         * Если потом захочешь — можно вернуть
-         * и настроить по каждому экрану отдельно.
-         */
         headerShown: false,
-
-        /**
-         * Цвета активной / неактивной вкладки
-         */
         tabBarActiveTintColor: "#1e90ff",
         tabBarInactiveTintColor: "gray",
-
-        /**
-         * Подбор иконки по имени вкладки
-         */
         tabBarIcon: ({ color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           if (route.name === "Home") {
             iconName = "home";
-          } else if (route.name === "DailyCheck") {
+          } else if (route.name === "Daily") {
             iconName = "calendar";
           } else if (route.name === "Weights") {
             iconName = "fitness";
@@ -75,8 +55,8 @@ export default function MainTabs() {
       />
 
       <Tab.Screen
-        name="DailyCheck"
-        component={DailyCheckScreen}
+        name="Daily"
+        component={DailyCheckNavigator}
         options={{
           tabBarLabel: "Daily",
         }}
