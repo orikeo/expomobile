@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import {
   getDailyCheckDay,
@@ -20,66 +21,43 @@ import {
   DailyCheckStatus,
 } from "../dailyCheck.types";
 import { HabitStatusRow } from "../components/HabitStatusRow";
+import { DailyCheckStackParamList } from "../../../navigation/DailyCheckNavigator";
 
 /**
  * =========================================================
  * HELPERS
  * =========================================================
  */
-
-/**
- * Форматируем текущую дату в YYYY-MM-DD.
- *
- * Backend сейчас ждёт именно такую строку.
- */
 function getTodayDateString(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * =========================================================
- * SCREEN
- * =========================================================
- */
-export default function DailyCheckScreen() {
-  /**
-   * Пока экран работает только с сегодняшним днём.
-   *
-   * Позже, когда добавим overview / heatmap,
-   * сюда можно будет передавать дату через route params.
-   */
-  const [date] = useState<string>(getTodayDateString());
+type Props = NativeStackScreenProps<DailyCheckStackParamList, "DailyDay">;
 
-  /**
-   * Служебные состояния UI
-   */
+export default function DailyCheckScreen({ route, navigation }: Props) {
+  const date = route.params?.date ?? getTodayDateString();
+
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
 
-  /**
-   * Поля дневного отчёта
-   */
   const [moodScore, setMoodScore] = useState<number | null>(null);
   const [moodComment, setMoodComment] = useState<string>("");
   const [summary, setSummary] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [musicOfDay, setMusicOfDay] = useState<string>("");
 
-  /**
-   * Локальные привычки дня
-   */
   const [items, setItems] = useState<DailyCheckDayItemState[]>([]);
 
   /**
-   * =========================================================
-   * LOAD DAY
-   * =========================================================
-   *
-   * Загружаем данные дня:
-   * - report
-   * - привычки
+   * Обновим заголовок, чтобы было видно дату.
    */
+  useEffect(() => {
+    navigation.setOptions({
+      title: `Отчёт: ${date}`,
+    });
+  }, [date, navigation]);
+
   const loadDay = useCallback(async () => {
     try {
       const response = await getDailyCheckDay(date);
@@ -105,9 +83,6 @@ export default function DailyCheckScreen() {
     }
   }, [date]);
 
-  /**
-   * Первый запуск экрана
-   */
   useEffect(() => {
     const run = async () => {
       setLoading(true);
@@ -118,27 +93,12 @@ export default function DailyCheckScreen() {
     run();
   }, [loadDay]);
 
-  /**
-   * Pull-to-refresh
-   */
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadDay();
     setRefreshing(false);
   }, [loadDay]);
 
-  /**
-   * =========================================================
-   * HABITS STATE UPDATES
-   * =========================================================
-   */
-
-  /**
-   * Меняем статус одной привычки.
-   *
-   * Если новый статус не skipped,
-   * то причину skipped очищаем.
-   */
   const handleChangeStatus = useCallback(
     (itemId: string, status: DailyCheckStatus) => {
       setItems((prev) =>
@@ -156,35 +116,19 @@ export default function DailyCheckScreen() {
     []
   );
 
-  /**
-   * Меняем текст причины skipped.
-   */
-  const handleChangeSkipReason = useCallback(
-    (itemId: string, value: string) => {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId
-            ? {
-                ...item,
-                skipReason: value,
-              }
-            : item
-        )
-      );
-    },
-    []
-  );
+  const handleChangeSkipReason = useCallback((itemId: string, value: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              skipReason: value,
+            }
+          : item
+      )
+    );
+  }, []);
 
-  /**
-   * =========================================================
-   * SAVE PAYLOAD
-   * =========================================================
-   *
-   * Подготавливаем payload для backend.
-   *
-   * Неотмеченные привычки (status === null)
-   * пока не отправляем.
-   */
   const payload = useMemo(() => {
     return {
       date,
@@ -204,38 +148,22 @@ export default function DailyCheckScreen() {
             item.status === "skipped" ? item.skipReason?.trim() || null : null,
         })),
     };
-  }, [date, moodComment, moodScore, musicOfDay, note, summary, items]);
+  }, [date, items, moodComment, moodScore, musicOfDay, note, summary]);
 
-  /**
-   * =========================================================
-   * SAVE
-   * =========================================================
-   *
-   * Сохраняем дневной отчёт.
-   */
   const handleSave = useCallback(async () => {
     try {
       setSaving(true);
-
       await saveDailyCheckDay(payload);
-
       Alert.alert("Успешно", "Отчёт за день сохранён");
+      await loadDay();
     } catch (error) {
       console.error("Failed to save daily check day:", error);
       Alert.alert("Ошибка", "Не удалось сохранить отчёт за день");
     } finally {
       setSaving(false);
     }
-  }, [payload]);
+  }, [loadDay, payload]);
 
-  /**
-   * =========================================================
-   * RENDER MOOD BUTTONS
-   * =========================================================
-   *
-   * Пока делаем простую и понятную схему:
-   * 10 кнопок от 1 до 10.
-   */
   const renderMoodButtons = () => {
     const buttons = [];
 
@@ -263,11 +191,6 @@ export default function DailyCheckScreen() {
     return <View style={styles.moodButtonsContainer}>{buttons}</View>;
   };
 
-  /**
-   * =========================================================
-   * LOADING STATE
-   * =========================================================
-   */
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -277,11 +200,6 @@ export default function DailyCheckScreen() {
     );
   }
 
-  /**
-   * =========================================================
-   * MAIN RENDER
-   * =========================================================
-   */
   return (
     <ScrollView
       style={styles.screen}
@@ -382,11 +300,6 @@ export default function DailyCheckScreen() {
   );
 }
 
-/**
- * =========================================================
- * STYLES
- * =========================================================
- */
 const styles = StyleSheet.create({
   screen: {
     flex: 1,

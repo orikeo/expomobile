@@ -13,13 +13,20 @@ import DailyCheckHabitFormScreen from "../features/dailyCheck/screens/DailyCheck
  */
 export type DailyCheckStackParamList = {
   DailyOverview: undefined;
-  DailyDay: undefined;
+  DailyDay: {
+    date?: string;
+  } | undefined;
   DailyHabits: undefined;
   DailyHabitForm:
     | { mode: "create" }
     | { mode: "edit"; itemId: string };
 };
 
+/**
+ * =========================================================
+ * STACK
+ * =========================================================
+ */
 const Stack = createNativeStackNavigator<DailyCheckStackParamList>();
 
 export default function DailyCheckNavigator() {
@@ -65,9 +72,12 @@ export default function DailyCheckNavigator() {
       <Stack.Screen
         name="DailyHabitForm"
         component={DailyCheckHabitFormScreen}
-        options={{
-          title: "Форма привычки",
-        }}
+        options={({ route }) => ({
+          title:
+            route.params.mode === "edit"
+              ? "Редактировать привычку"
+              : "Новая привычка",
+        })}
       />
     </Stack.Navigator>
   );

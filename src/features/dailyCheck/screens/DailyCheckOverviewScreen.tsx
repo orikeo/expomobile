@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
@@ -19,12 +19,6 @@ type Props = NativeStackScreenProps<
   DailyCheckStackParamList,
   "DailyOverview"
 >;
-
-/**
- * =========================================================
- * HELPERS
- * =========================================================
- */
 
 function formatDateToYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -46,8 +40,8 @@ function getLast14DaysRange() {
 function getShortWeekday(dateString: string): string {
   const date = new Date(`${dateString}T00:00:00`);
   const day = date.getDay();
-
   const labels = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+
   return labels[day];
 }
 
@@ -55,19 +49,9 @@ function getDayNumber(dateString: string): string {
   return new Date(`${dateString}T00:00:00`).getDate().toString();
 }
 
-/**
- * Цвет дня по итоговому score.
- *
- * Чем выше score, тем "лучше" день.
- * skipped уже учтён в finalScore на backend.
- */
 function getCardBackgroundColor(day: DailyCheckRangeDay): string {
   const { finalScore, habitsTotal } = day;
 
-  /**
-   * Если привычек на день вообще нет,
-   * пусть будет нейтральный цвет.
-   */
   if (habitsTotal === 0) {
     return "#1b1b1b";
   }
@@ -91,9 +75,6 @@ function getCardBackgroundColor(day: DailyCheckRangeDay): string {
   return "#1f6a35";
 }
 
-/**
- * Для наглядности сделаем тонкую разницу рамки.
- */
 function getCardBorderColor(day: DailyCheckRangeDay): string {
   if (day.habitsTotal === 0) {
     return "#333333";
@@ -106,18 +87,18 @@ function getCardBorderColor(day: DailyCheckRangeDay): string {
   return "#444444";
 }
 
+function formatRangeLabel(from: string, to: string): string {
+  return `${from} → ${to}`;
+}
+
 export default function DailyCheckOverviewScreen({ navigation }: Props) {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [days, setDays] = useState<DailyCheckRangeDay[]>([]);
 
   const range = useMemo(() => getLast14DaysRange(), []);
+  const today = useMemo(() => formatDateToYmd(new Date()), []);
 
-  /**
-   * =========================================================
-   * LOAD RANGE
-   * =========================================================
-   */
   const loadRange = useCallback(async () => {
     try {
       const response = await getDailyCheckRange(range.from, range.to);
@@ -144,32 +125,14 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
     setRefreshing(false);
   }, [loadRange]);
 
-  /**
-   * Делим 14 дней на 2 строки по 7.
-   */
   const firstWeek = days.slice(0, 7);
   const secondWeek = days.slice(7, 14);
 
-  /**
-   * Пока DailyCheckScreen не принимает дату через route params,
-   * поэтому полноценный переход делаем только для "сегодня".
-   *
-   * Для остальных дней можно уже нажимать,
-   * но пока просто покажем подсказку.
-   */
   const handlePressDay = useCallback(
     (day: DailyCheckRangeDay) => {
-      const today = formatDateToYmd(new Date());
-
-      if (day.date === today) {
-        navigation.navigate("DailyDay");
-        return;
-      }
-
-      Alert.alert(
-        "Следующий шаг",
-        `Экран дня для даты ${day.date} подключим следующим пакетом, когда передадим дату в DailyCheckScreen.`
-      );
+      navigation.navigate("DailyDay", {
+        date: day.date,
+      });
     },
     [navigation]
   );
@@ -180,8 +143,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
         {weekDays.map((day) => {
           const hasText = Boolean(day.summary || day.note);
           const isEmptyDay = day.habitsTotal === 0;
-          const backgroundColor = getCardBackgroundColor(day);
-          const borderColor = getCardBorderColor(day);
+          const isToday = day.date === today;
 
           return (
             <TouchableOpacity
@@ -189,8 +151,9 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
               style={[
                 styles.dayCard,
                 {
-                  backgroundColor,
-                  borderColor,
+                  backgroundColor: getCardBackgroundColor(day),
+                  borderColor: isToday ? "#ffffff" : getCardBorderColor(day),
+                  borderWidth: isToday ? 2 : 1,
                 },
               ]}
               onPress={() => handlePressDay(day)}
@@ -207,7 +170,11 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
               </View>
 
               <View style={styles.dayBottomRow}>
-                {hasText ? <View style={styles.noteDot} /> : <View style={styles.noteDotHidden} />}
+                {hasText ? (
+                  <View style={styles.noteDot} />
+                ) : (
+                  <View style={styles.noteDotHidden} />
+                )}
 
                 <Text style={styles.habitMiniText}>
                   {isEmptyDay ? "0" : `${day.yesCount}/${day.habitsTotal}`}
@@ -241,17 +208,27 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
       <Text style={styles.subtitle}>
         Цвет дня зависит от выполнения привычек. Цифра внутри — настроение.
       </Text>
+      <Text style={styles.rangeLabel}>{formatRangeLabel(range.from, range.to)}</Text>
 
       <View style={styles.legendCard}>
         <Text style={styles.legendTitle}>Как читать карточки</Text>
         <Text style={styles.legendText}>• Чем зеленее день, тем лучше итог</Text>
+        <Text style={styles.legendText}>• Светлая рамка — сегодняшний день</Text>
+        <Text style={styles.legendText}>• Золотистая рамка — в дне были skipped</Text>
         <Text style={styles.legendText}>• Точка означает, что есть итог дня или заметка</Text>
         <Text style={styles.legendText}>• Дробь внизу — выполнено / всего привычек</Text>
       </View>
 
+      <View style={styles.infoCard}>
+        <Text style={styles.infoCardTitle}>Напоминание</Text>
+        <Text style={styles.infoCardText}>
+          Сейчас приложение ставит простое ежедневное локальное уведомление на 23:00.
+        </Text>
+      </View>
+
       <TouchableOpacity
         style={styles.todayButton}
-        onPress={() => navigation.navigate("DailyDay")}
+        onPress={() => navigation.navigate("DailyDay", { date: today })}
       >
         <Text style={styles.todayButtonText}>Открыть сегодняшний отчёт</Text>
       </TouchableOpacity>
@@ -306,13 +283,18 @@ const styles = StyleSheet.create({
     color: "#aaaaaa",
     fontSize: 14,
     lineHeight: 20,
+    marginBottom: 6,
+  },
+  rangeLabel: {
+    color: "#7f7f7f",
+    fontSize: 12,
     marginBottom: 16,
   },
   legendCard: {
     backgroundColor: "#171717",
     borderRadius: 12,
     padding: 14,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   legendTitle: {
     color: "#ffffff",
@@ -325,6 +307,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 4,
+  },
+  infoCard: {
+    backgroundColor: "#171717",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#2c2c2c",
+  },
+  infoCardTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  infoCardText: {
+    color: "#bbbbbb",
+    fontSize: 13,
+    lineHeight: 19,
   },
   todayButton: {
     backgroundColor: "#2d2d2d",
@@ -371,7 +372,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 8,
-    borderWidth: 1,
     justifyContent: "space-between",
   },
   dayWeekLabel: {
