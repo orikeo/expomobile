@@ -22,8 +22,9 @@ import {
 } from "../notifications/dailyCheckReminderSettings";
 import {
   formatDeadlineLabel,
-  formatDisplayDate,
+  formatDayShort,
   getDeviceTimeZone,
+  getLast14DaysDateList,
   getLast14DaysRange,
   getTodayDateString,
 } from "../dailyCheck.time";
@@ -35,9 +36,9 @@ function getStatusColor(status: DailyReportLifecycleStatus) {
     case "completed":
       return "#244b2f";
     case "partial":
-      return "#5c4a1f";
+      return "#6b5a25";
     case "missed":
-      return "#111111";
+      return "#101010";
     case "open":
     default:
       return "#1f3b66";
@@ -123,6 +124,46 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
     []
   );
 
+  const daysMap = useMemo(() => {
+    const map = new Map<string, DailyCheckRangeDay>();
+
+    for (const day of days) {
+      map.set(day.date, day);
+    }
+
+    return map;
+  }, [days]);
+
+  const calendarDays = useMemo(() => {
+    return getLast14DaysDateList().map((date) => {
+      const existing = daysMap.get(date);
+
+      return (
+        existing ?? {
+          date,
+          moodScore: null,
+          summary: null,
+          note: null,
+          habitsTotal: 0,
+          yesCount: 0,
+          noCount: 0,
+          skippedCount: 0,
+          completionRate: 0,
+          finalScore: 0,
+          status: "open" as DailyReportLifecycleStatus,
+          deadlineAt: new Date().toISOString(),
+          closedAt: null,
+          wasEditedAfterDeadline: false,
+          timeZone,
+          isOverdue: false,
+          canEdit: true,
+        }
+      );
+    });
+  }, [daysMap, timeZone]);
+
+  const selectedToday = getTodayDateString();
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -139,14 +180,12 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>Daily Check</Text>
-      <Text style={styles.subtitle}>
-        Последние 14 дней и текущие статусы отчётов
-      </Text>
+      <Text style={styles.subtitle}>Последние 14 дней в виде сетки</Text>
 
       <View style={styles.topButtonsRow}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => navigation.navigate("DailyDay", { date: getTodayDateString() })}
+          onPress={() => navigation.navigate("DailyDay", { date: selectedToday })}
         >
           <Text style={styles.primaryButtonText}>Открыть сегодняшний отчёт</Text>
         </TouchableOpacity>
@@ -162,57 +201,75 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
       <View style={styles.reminderCard}>
         <View style={{ flex: 1 }}>
           <Text style={styles.reminderTitle}>Напоминания</Text>
-          <Text style={styles.reminderText}>
-            Локальные уведомления для daily check
-          </Text>
+          <Text style={styles.reminderText}>Локальные уведомления daily check</Text>
         </View>
 
         <Switch value={remindersEnabled} onValueChange={handleToggleReminders} />
       </View>
 
-      {days.map((day) => (
-        <TouchableOpacity
-          key={day.date}
-          style={styles.dayCard}
-          onPress={() => navigation.navigate("DailyDay", { date: day.date })}
-        >
-          <View style={styles.dayHeader}>
-            <View>
-              <Text style={styles.dayTitle}>{formatDisplayDate(day.date)}</Text>
-              <Text style={styles.daySubtitle}>
-                Дедлайн: {formatDeadlineLabel(day.deadlineAt)}
-              </Text>
-            </View>
+      <View style={styles.legendCard}>
+        <Text style={styles.legendTitle}>Статусы</Text>
 
-            <View
-              style={[styles.statusBadge, { backgroundColor: getStatusColor(day.status) }]}
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("open") }]} />
+          <Text style={styles.legendText}>open</Text>
+
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("completed") }]} />
+          <Text style={styles.legendText}>completed</Text>
+        </View>
+
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("partial") }]} />
+          <Text style={styles.legendText}>partial</Text>
+
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("missed") }]} />
+          <Text style={styles.legendText}>missed</Text>
+        </View>
+      </View>
+
+      <View style={styles.grid}>
+        {calendarDays.map((day) => {
+          const isToday = day.date === selectedToday;
+
+          return (
+            <TouchableOpacity
+              key={day.date}
+              style={[
+                styles.dayCell,
+                { backgroundColor: getStatusColor(day.status) },
+                isToday && styles.todayCell,
+              ]}
+              onPress={() => navigation.navigate("DailyDay", { date: day.date })}
             >
-              <Text style={styles.statusBadgeText}>{getStatusLabel(day.status)}</Text>
-            </View>
-          </View>
+              <Text style={styles.dayCellDate}>{formatDayShort(day.date)}</Text>
+              <Text style={styles.dayCellStatus}>{getStatusLabel(day.status)}</Text>
+              {day.moodScore !== null ? (
+                <Text style={styles.dayCellMood}>{day.moodScore}/10</Text>
+              ) : null}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
-          <View style={styles.metricsRow}>
-            <Text style={styles.metricText}>Yes: {day.yesCount}</Text>
-            <Text style={styles.metricText}>No: {day.noCount}</Text>
-            <Text style={styles.metricText}>Skip: {day.skippedCount}</Text>
-          </View>
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>Нажми на день</Text>
+        <Text style={styles.infoText}>
+          Откроется отчёт за выбранную дату. Старые дни тоже можно редактировать.
+        </Text>
+      </View>
 
-          <Text style={styles.dayMeta}>Habits total: {day.habitsTotal}</Text>
-          <Text style={styles.dayMeta}>Final score: {day.finalScore}</Text>
+      {calendarDays.length > 0 ? (
+        <View style={styles.bottomCard}>
+          <Text style={styles.bottomTitle}>Сегодня</Text>
+          <Text style={styles.bottomText}>
+            Дедлайн: {formatDeadlineLabel(daysMap.get(selectedToday)?.deadlineAt ?? new Date().toISOString())}
+          </Text>
 
-          {day.moodScore !== null ? (
-            <Text style={styles.dayMeta}>Mood: {day.moodScore}/10</Text>
+          {daysMap.get(selectedToday)?.wasEditedAfterDeadline ? (
+            <Text style={styles.lateEditText}>Сегодняшний день уже менялся после дедлайна</Text>
           ) : null}
-
-          {day.summary ? (
-            <Text style={styles.daySummary}>Summary: {day.summary}</Text>
-          ) : null}
-
-          {day.wasEditedAfterDeadline ? (
-            <Text style={styles.lateEditText}>Отредактирован после дедлайна</Text>
-          ) : null}
-        </TouchableOpacity>
-      ))}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -293,58 +350,97 @@ const styles = StyleSheet.create({
     color: "#aaaaaa",
     fontSize: 13,
   },
-  dayCard: {
+  legendCard: {
     backgroundColor: "#181818",
     borderRadius: 14,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  dayHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 10,
-    gap: 12,
-  },
-  dayTitle: {
+  legendTitle: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 10,
   },
-  daySubtitle: {
-    color: "#aaaaaa",
-    fontSize: 12,
+  legendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+    flexWrap: "wrap",
   },
-  statusBadge: {
+  legendDot: {
+    width: 14,
+    height: 14,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
   },
-  statusBadgeText: {
+  legendText: {
+    color: "#d0d0d0",
+    marginRight: 12,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 16,
+  },
+  dayCell: {
+    width: "23%",
+    minHeight: 92,
+    borderRadius: 14,
+    padding: 10,
+    justifyContent: "space-between",
+  },
+  todayCell: {
+    borderWidth: 2,
+    borderColor: "#ffffff",
+  },
+  dayCellDate: {
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "700",
   },
-  metricsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 8,
-    flexWrap: "wrap",
-  },
-  metricText: {
+  dayCellStatus: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: 11,
   },
-  dayMeta: {
+  dayCellMood: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  infoCard: {
+    backgroundColor: "#181818",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  infoTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  infoText: {
+    color: "#bdbdbd",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  bottomCard: {
+    backgroundColor: "#181818",
+    borderRadius: 14,
+    padding: 14,
+  },
+  bottomTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  bottomText: {
     color: "#c9c9c9",
     fontSize: 13,
-    marginBottom: 4,
-  },
-  daySummary: {
-    color: "#ffffff",
-    fontSize: 13,
-    marginTop: 4,
   },
   lateEditText: {
     color: "#ffd166",

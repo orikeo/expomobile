@@ -77,31 +77,37 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
     });
   }, [date, navigation]);
 
+  const applyDayResponse = useCallback((response: any) => {
+    setMoodScore(response?.report?.moodScore ?? null);
+    setMoodComment(response?.report?.moodComment ?? "");
+    setSummary(response?.report?.summary ?? "");
+    setNote(response?.report?.note ?? "");
+    setMusicOfDay(response?.report?.musicOfDay ?? "");
+    setLifecycle(response?.lifecycle ?? EMPTY_LIFECYCLE);
+
+    setItems(
+      Array.isArray(response?.items)
+        ? response.items.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            emoji: item.emoji ?? null,
+            status: item.status ?? null,
+            skipReason: item.skipReason ?? null,
+          }))
+        : []
+    );
+  }, []);
+
   const loadDay = useCallback(async () => {
     try {
       const response = await getDailyCheckDay(date, timeZone);
-
-      setMoodScore(response.report?.moodScore ?? null);
-      setMoodComment(response.report?.moodComment ?? "");
-      setSummary(response.report?.summary ?? "");
-      setNote(response.report?.note ?? "");
-      setMusicOfDay(response.report?.musicOfDay ?? "");
-      setLifecycle(response.lifecycle);
-
-      setItems(
-        response.items.map((item) => ({
-          id: item.id,
-          title: item.title,
-          emoji: item.emoji,
-          status: item.status,
-          skipReason: item.skipReason,
-        }))
-      );
+      applyDayResponse(response);
     } catch (error) {
       console.error("Failed to load daily check day:", error);
       Alert.alert("Ошибка", "Не удалось загрузить отчёт за день");
+      applyDayResponse(null);
     }
-  }, [date, timeZone]);
+  }, [applyDayResponse, date, timeZone]);
 
   useEffect(() => {
     const run = async () => {
@@ -176,23 +182,21 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
       setSaving(true);
 
       const response = await saveDailyCheckDay(payload);
-      setLifecycle(response.lifecycle);
+      applyDayResponse(response);
 
       Alert.alert(
         "Сохранено",
-        response.lifecycle.wasEditedAfterDeadline
+        response?.lifecycle?.wasEditedAfterDeadline
           ? "Отчёт сохранён. День был изменён уже после дедлайна."
           : "Отчёт за день сохранён"
       );
-
-      await loadDay();
     } catch (error) {
       console.error("Failed to save daily check day:", error);
       Alert.alert("Ошибка", "Не удалось сохранить отчёт за день");
     } finally {
       setSaving(false);
     }
-  }, [loadDay, payload]);
+  }, [applyDayResponse, payload]);
 
   const renderMoodButtons = () => {
     const buttons = [];
@@ -241,13 +245,13 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
       <Text style={styles.subtitle}>Дата: {formatDisplayDate(date)}</Text>
 
       <View style={styles.metaCard}>
-        <Text style={styles.metaTitle}>{getLifecycleLabel(lifecycle.status)}</Text>
+        <Text style={styles.metaTitle}>{getLifecycleLabel(lifecycle?.status ?? "open")}</Text>
         <Text style={styles.metaText}>
-          Дедлайн: {formatDeadlineLabel(lifecycle.deadlineAt)}
+          Дедлайн: {formatDeadlineLabel(lifecycle?.deadlineAt ?? new Date().toISOString())}
         </Text>
-        <Text style={styles.metaText}>Таймзона: {lifecycle.timeZone}</Text>
+        <Text style={styles.metaText}>Таймзона: {lifecycle?.timeZone ?? "UTC"}</Text>
 
-        {lifecycle.wasEditedAfterDeadline ? (
+        {lifecycle?.wasEditedAfterDeadline ? (
           <Text style={styles.metaWarning}>
             Этот день уже менялся после дедлайна
           </Text>
@@ -256,7 +260,6 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Настроение</Text>
-
         {renderMoodButtons()}
 
         <TextInput

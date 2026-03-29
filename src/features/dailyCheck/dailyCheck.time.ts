@@ -2,11 +2,6 @@
  * =========================================================
  * DAILY CHECK TIME HELPERS
  * =========================================================
- *
- * Важно:
- * - не используем toISOString().slice(0, 10) для "сегодня",
- *   потому что это UTC и можно легко получить соседний день
- * - работаем с локальной датой устройства
  */
 
 export function getDeviceTimeZone(): string {
@@ -45,6 +40,17 @@ export function getLast14DaysRange() {
   };
 }
 
+export function getLast14DaysDateList(): string[] {
+  const result: string[] = [];
+  const today = new Date();
+
+  for (let offset = 13; offset >= 0; offset -= 1) {
+    result.push(formatDateToLocalYmd(addDays(today, -offset)));
+  }
+
+  return result;
+}
+
 export function formatDisplayDate(value: string): string {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
@@ -56,8 +62,22 @@ export function formatDisplayDate(value: string): string {
   });
 }
 
-export function formatDeadlineLabel(value: string): string {
+export function formatDayShort(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  return date.toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+export function formatDeadlineLabel(value: string) {
   const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
 
   return date.toLocaleString(undefined, {
     day: "2-digit",
