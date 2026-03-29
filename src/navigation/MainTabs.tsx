@@ -1,16 +1,12 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
-import CarsStack from "./CarsStack";
 import HomeScreen from "../screens/HomeScreen";
-import WeightScreen from "../features/weight/screens/WeightScreen";
+import WeightsScreen from "../features/weight/screens/WeightScreen";
+import CarsStack from "./CarsStack";
 import DailyCheckNavigator from "./DailyCheckNavigator";
+import { colors } from "../theme/color";
 
-/**
- * =========================================================
- * MAIN TAB PARAM LIST
- * =========================================================
- */
 export type MainTabParamList = {
   Home: undefined;
   Daily: undefined;
@@ -25,58 +21,45 @@ export default function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: "#1e90ff",
-        tabBarInactiveTintColor: "gray",
+
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 62,
+          paddingTop: 6,
+          paddingBottom: 6,
+        },
+
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "600",
+        },
+
         tabBarIcon: ({ color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
+          let iconName: keyof typeof Ionicons.glyphMap = "ellipse";
 
           if (route.name === "Home") {
-            iconName = "home";
+            iconName = "home-outline";
           } else if (route.name === "Daily") {
-            iconName = "calendar";
+            iconName = "calendar-outline";
           } else if (route.name === "Weights") {
-            iconName = "fitness";
+            iconName = "pulse-outline";
           } else if (route.name === "Cars") {
-            iconName = "car";
-          } else {
-            iconName = "ellipse";
+            iconName = "car-sport-outline";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: "Home",
-        }}
-      />
-
-      <Tab.Screen
-        name="Daily"
-        component={DailyCheckNavigator}
-        options={{
-          tabBarLabel: "Daily",
-        }}
-      />
-
-      <Tab.Screen
-        name="Weights"
-        component={WeightScreen}
-        options={{
-          tabBarLabel: "Weights",
-        }}
-      />
-
-      <Tab.Screen
-        name="Cars"
-        component={CarsStack}
-        options={{
-          tabBarLabel: "Cars",
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Daily" component={DailyCheckNavigator} />
+      <Tab.Screen name="Weights" component={WeightsScreen} />
+      <Tab.Screen name="Cars" component={CarsStack} />
     </Tab.Navigator>
   );
 }

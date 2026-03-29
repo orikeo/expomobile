@@ -46,28 +46,36 @@ function getStatusColor(status: DailyReportLifecycleStatus) {
   }
 }
 
-function getStatusLabel(status: DailyReportLifecycleStatus) {
+function getStatusLegendLabel(status: DailyReportLifecycleStatus) {
   switch (status) {
     case "completed":
-      return "done";
+      return "completed";
     case "partial":
-      return "part";
+      return "partial";
     case "missed":
-      return "miss";
+      return "missed";
     case "open":
     default:
       return "open";
   }
 }
 
+function getStatusCellMark(status: DailyReportLifecycleStatus) {
+  switch (status) {
+    case "completed":
+      return "✓";
+    case "partial":
+      return "P";
+    case "missed":
+      return "M";
+    case "open":
+    default:
+      return "";
+  }
+}
+
 export default function DailyCheckOverviewScreen({ navigation }: Props) {
   const timeZone = useMemo(() => getDeviceTimeZone(), []);
-
-  /**
-   * В Expo Go expo-notifications работает ограниченно.
-   * Чтобы не ловить ошибки на toggle / apply settings,
-   * скрываем активное управление напоминаниями в Expo Go.
-   */
   const isExpoGo = Boolean(Constants.expoGoConfig);
 
   const [loading, setLoading] = useState(true);
@@ -193,6 +201,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
       <View style={styles.daysRow}>
         {rowDays.map((day) => {
           const isToday = day.date === selectedToday;
+          const mark = getStatusCellMark(day.status);
 
           return (
             <TouchableOpacity
@@ -204,11 +213,18 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
               ]}
               onPress={() => navigation.navigate("DailyDay", { date: day.date })}
             >
-              <Text style={styles.dayCellDate}>{formatDayShort(day.date)}</Text>
-              <Text style={styles.dayCellStatus}>{getStatusLabel(day.status)}</Text>
-              {day.moodScore !== null ? (
-                <Text style={styles.dayCellMood}>{day.moodScore}/10</Text>
-              ) : null}
+              <View style={styles.dayCellTop}>
+                <Text style={styles.dayCellDate}>{formatDayShort(day.date)}</Text>
+                {mark ? <Text style={styles.dayCellMark}>{mark}</Text> : null}
+              </View>
+
+              <View>
+                {day.moodScore !== null ? (
+                  <Text style={styles.dayCellMood}>{day.moodScore}/10</Text>
+                ) : (
+                  <Text style={styles.dayCellEmpty}>—</Text>
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -239,18 +255,18 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
 
         <View style={styles.legendRow}>
           <View style={[styles.legendDot, { backgroundColor: getStatusColor("open") }]} />
-          <Text style={styles.legendText}>open</Text>
+          <Text style={styles.legendText}>{getStatusLegendLabel("open")}</Text>
 
           <View style={[styles.legendDot, { backgroundColor: getStatusColor("completed") }]} />
-          <Text style={styles.legendText}>completed</Text>
+          <Text style={styles.legendText}>{getStatusLegendLabel("completed")}</Text>
         </View>
 
         <View style={styles.legendRow}>
           <View style={[styles.legendDot, { backgroundColor: getStatusColor("partial") }]} />
-          <Text style={styles.legendText}>partial</Text>
+          <Text style={styles.legendText}>{getStatusLegendLabel("partial")}</Text>
 
           <View style={[styles.legendDot, { backgroundColor: getStatusColor("missed") }]} />
-          <Text style={styles.legendText}>missed</Text>
+          <Text style={styles.legendText}>{getStatusLegendLabel("missed")}</Text>
         </View>
       </View>
 
@@ -269,7 +285,10 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
       <View style={styles.bottomCard}>
         <Text style={styles.bottomTitle}>Сегодня</Text>
         <Text style={styles.bottomText}>
-          Дедлайн: {formatDeadlineLabel(daysMap.get(selectedToday)?.deadlineAt ?? new Date().toISOString())}
+          Дедлайн:{" "}
+          {formatDeadlineLabel(
+            daysMap.get(selectedToday)?.deadlineAt ?? new Date().toISOString()
+          )}
         </Text>
       </View>
 
@@ -381,19 +400,29 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#ffffff",
   },
+  dayCellTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   dayCellDate: {
     color: "#ffffff",
     fontSize: 10,
     fontWeight: "700",
   },
-  dayCellStatus: {
+  dayCellMark: {
     color: "#ffffff",
-    fontSize: 9,
+    fontSize: 10,
+    fontWeight: "700",
   },
   dayCellMood: {
     color: "#ffffff",
     fontSize: 9,
     fontWeight: "700",
+  },
+  dayCellEmpty: {
+    color: "#d0d0d0",
+    fontSize: 9,
   },
   primaryButton: {
     backgroundColor: "#2d5bff",
