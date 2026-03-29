@@ -8,26 +8,33 @@ import {
   Alert,
   TouchableOpacity,
 } from "react-native";
-
 import {
   useFocusEffect,
   useNavigation,
   useRoute,
   RouteProp,
 } from "@react-navigation/native";
-
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { CarsStackParamList } from "../../../navigation/CarsStack";
-import {
-  getFuelLogsByCarId,
-  deleteFuelLog,
-  FuelLog,
-} from "../api/fuel.api";
+import { getFuelLogsByCarId, deleteFuelLog, FuelLog } from "../api/fuel.api";
+import { colors } from "../../../theme/color";
 
 type RouteType = RouteProp<CarsStackParamList, "FuelLogs">;
 type NavigationType = NativeStackNavigationProp<CarsStackParamList, "FuelLogs">;
 
+/**
+ * =========================================================
+ * FUEL LOGS SCREEN
+ * =========================================================
+ *
+ * Экран показывает список заправок выбранной машины.
+ * Здесь можно:
+ *  - загрузить историю
+ *  - перейти к созданию новой записи
+ *  - перейти к редактированию
+ *  - удалить запись
+ */
 export default function FuelLogsScreen() {
   const route = useRoute<RouteType>();
   const navigation = useNavigation<NavigationType>();
@@ -41,6 +48,7 @@ export default function FuelLogsScreen() {
   async function loadFuelLogs() {
     try {
       setLoading(true);
+
       const data = await getFuelLogsByCarId(carId);
       setFuelLogs(data);
     } catch (error) {
@@ -53,6 +61,9 @@ export default function FuelLogsScreen() {
     }
   }
 
+  /**
+   * Заголовок экрана и кнопка добавления новой записи.
+   */
   useLayoutEffect(() => {
     navigation.setOptions({
       title: `${name} - Fuel logs`,
@@ -71,6 +82,10 @@ export default function FuelLogsScreen() {
     });
   }, [navigation, name, carId]);
 
+  /**
+   * Перезагрузка при каждом возврате на экран.
+   * Это удобно после create / edit.
+   */
   useFocusEffect(
     useCallback(() => {
       loadFuelLogs();
@@ -97,6 +112,10 @@ export default function FuelLogsScreen() {
       setDeletingId(id);
       await deleteFuelLog(id);
 
+      /**
+       * После успешного удаления сразу обновляем локальный список,
+       * чтобы не делать лишний запрос.
+       */
       setFuelLogs((prev) => prev.filter((item) => item.id !== id));
     } catch (error) {
       const message =
@@ -130,7 +149,7 @@ export default function FuelLogsScreen() {
 
         <Text style={styles.cardText}>Liters: {item.liters}</Text>
         <Text style={styles.cardText}>Price per liter: {item.pricePerLiter}</Text>
-        <Text style={styles.cardText}>Total price: {item.totalPrice}</Text>
+        <Text style={styles.totalPriceText}>Total price: {item.totalPrice}</Text>
         <Text style={styles.cardText}>Odometer: {item.odometer ?? "—"}</Text>
         <Text style={styles.cardText}>
           Station: {item.station ? item.station : "—"}
@@ -140,36 +159,29 @@ export default function FuelLogsScreen() {
           Created: {new Date(item.createdAt).toLocaleString()}
         </Text>
 
-        <TouchableOpacity
-          style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
-          onPress={() => handleDeletePress(item)}
-          disabled={isDeleting}
-        >
-          <Text style={styles.deleteButtonText}>
-            {isDeleting ? "Deleting..." : "Delete"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-    style={styles.editButton}
-    onPress={() =>
-      navigation.navigate("EditFuel", {
-        fuelLog: item,
-        name,
-      })
-    }
-  >
-    <Text style={styles.editButtonText}>Edit</Text>
-  </TouchableOpacity>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() =>
+              navigation.navigate("EditFuel", {
+                fuelLog: item,
+                name,
+              })
+            }
+          >
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
 
-  <TouchableOpacity
-    style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
-    onPress={() => handleDeletePress(item)}
-    disabled={isDeleting}
-  >
-    <Text style={styles.deleteButtonText}>
-      {isDeleting ? "Deleting..." : "Delete"}
-    </Text>
-  </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
+            onPress={() => handleDeletePress(item)}
+            disabled={isDeleting}
+          >
+            <Text style={styles.deleteButtonText}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -177,7 +189,7 @@ export default function FuelLogsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -219,7 +231,7 @@ const styles = StyleSheet.create({
   headerButton: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#007AFF",
+    color: colors.primary,
   },
 
   center: {
@@ -227,18 +239,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
   },
 
   emptyTitle: {
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 8,
+    color: colors.textPrimary,
   },
 
   emptyText: {
     fontSize: 14,
-    color: "#666",
+    color: colors.textSecondary,
     textAlign: "center",
     marginBottom: 20,
   },
@@ -246,112 +259,119 @@ const styles = StyleSheet.create({
   addButton: {
     paddingVertical: 12,
     paddingHorizontal: 18,
-    borderRadius: 10,
-    backgroundColor: "#007AFF",
+    borderRadius: 12,
+    backgroundColor: colors.primary,
   },
 
   addButtonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   listContent: {
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
   },
 
   card: {
     padding: 16,
     borderWidth: 1,
-    borderColor: "#e8e8e8",
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: 16,
     marginBottom: 12,
-    backgroundColor: "#fafafa",
+    backgroundColor: colors.surface,
   },
 
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
     gap: 8,
   },
 
   cardTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     flex: 1,
+    color: colors.textPrimary,
   },
 
   badge: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 999,
   },
 
   badgeFull: {
-    backgroundColor: "#dff5e3",
+    backgroundColor: "rgba(34, 197, 94, 0.18)",
   },
 
   badgePartial: {
-    backgroundColor: "#f3f3f3",
+    backgroundColor: colors.neutral,
   },
 
   badgeText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: "700",
+    color: colors.textPrimary,
   },
 
   cardText: {
     fontSize: 14,
-    color: "#333",
-    marginBottom: 4,
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+
+  totalPriceText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontWeight: "700",
+    marginBottom: 8,
   },
 
   cardDate: {
     fontSize: 12,
-    color: "#888",
+    color: colors.textMuted,
     marginTop: 8,
-    marginBottom: 12,
-  },
-
-  deleteButton: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#e74c3c",
-  },
-
-  deleteButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  buttonDisabled: {
-    opacity: 0.7,
+    marginBottom: 14,
   },
 
   actionsRow: {
-  flexDirection: "row",
-  gap: 10,
-  marginTop: 4,
-},
+    flexDirection: "row",
+    gap: 10,
+  },
 
-editButton: {
-  alignSelf: "flex-start",
-  paddingHorizontal: 14,
-  paddingVertical: 10,
-  borderRadius: 8,
-  backgroundColor: "#007AFF",
-},
+  editButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
 
-editButtonText: {
-  color: "#fff",
-  fontSize: 14,
-  fontWeight: "600",
-},
+  editButtonText: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  deleteButton: {
+    flex: 1,
+    backgroundColor: colors.danger,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+
+  deleteButtonText: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  buttonDisabled: {
+    opacity: 0.65,
+  },
 });

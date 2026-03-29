@@ -9,8 +9,11 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+
 import { login as loginRequest } from "../api/auth.api";
 import { useAuth } from "../context/AuthContext";
+import { APP_UI_VERSION } from "../../../config/appVersion";
+import { colors } from "../../../theme/color";
 
 /**
  * =========================================================
@@ -35,8 +38,6 @@ type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
  * 3. вызываем backend /auth/login
  * 4. получаем accessToken + refreshToken
  * 5. передаём их в AuthContext.login()
- *
- * Дальше уже AuthContext и tokenStorage сами всё синхронизируют.
  */
 export default function LoginScreen({ navigation }: Props) {
   const { login } = useAuth();
@@ -84,46 +85,53 @@ export default function LoginScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Вход</Text>
+    <View style={styles.screen}>
+      <View style={styles.card}>
+        <Text style={styles.title}>Вход</Text>
+        <Text style={styles.subtitle}>PET tracker</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        editable={!loading}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={colors.placeholder}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          editable={!loading}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Пароль"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        editable={!loading}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Пароль"
+          placeholderTextColor={colors.placeholder}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          editable={!loading}
+        />
 
-      <TouchableOpacity
-        style={[styles.button, loading && styles.buttonDisabled]}
-        onPress={handleLogin}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator />
-        ) : (
-          <Text style={styles.buttonText}>Войти</Text>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.buttonText}>Войти</Text>
+          )}
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => navigation.navigate("Register")}
-        disabled={loading}
-      >
-        <Text style={styles.link}>Нет аккаунта? Зарегистрироваться</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Register")}
+          disabled={loading}
+        >
+          <Text style={styles.link}>Нет аккаунта? Зарегистрироваться</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.versionText}>v{APP_UI_VERSION}</Text>
+      </View>
     </View>
   );
 }
@@ -134,46 +142,78 @@ export default function LoginScreen({ navigation }: Props) {
  * =========================================================
  */
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     justifyContent: "center",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
   },
+
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 20,
+  },
+
   title: {
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 24,
+    marginBottom: 6,
     textAlign: "center",
+    color: colors.textPrimary,
   },
+
+  subtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    color: colors.textSecondary,
+    marginBottom: 24,
+  },
+
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 14,
     fontSize: 16,
+    color: colors.textPrimary,
+    backgroundColor: colors.surfaceSecondary,
   },
+
   button: {
-    backgroundColor: "#007AFF",
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 4,
   },
+
   buttonDisabled: {
     opacity: 0.7,
   },
+
   buttonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: "600",
   },
+
   link: {
     marginTop: 18,
     textAlign: "center",
-    color: "#007AFF",
+    color: colors.primary,
     fontSize: 15,
+    fontWeight: "500",
+  },
+
+  versionText: {
+    marginTop: 18,
+    color: colors.textMuted,
+    fontSize: 12,
+    textAlign: "center",
   },
 });
