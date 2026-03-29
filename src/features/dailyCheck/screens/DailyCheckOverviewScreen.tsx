@@ -4,23 +4,16 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
   Alert,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import Constants from "expo-constants";
 
 import { getDailyCheckRange } from "../api/dailyCheck.api";
 import { DailyCheckRangeDay, DailyReportLifecycleStatus } from "../dailyCheck.types";
 import { DailyCheckStackParamList } from "../../../navigation/DailyCheckNavigator";
-import { applyDailyCheckReminderSettings } from "../notifications/dailyCheckNotifications";
-import {
-  getDailyCheckReminderSettings,
-  saveDailyCheckReminderSettings,
-} from "../notifications/dailyCheckReminderSettings";
 import {
   formatDeadlineLabel,
   formatDayShort,
@@ -76,12 +69,9 @@ function getStatusCellMark(status: DailyReportLifecycleStatus) {
 
 export default function DailyCheckOverviewScreen({ navigation }: Props) {
   const timeZone = useMemo(() => getDeviceTimeZone(), []);
-  const isExpoGo = Boolean(Constants.expoGoConfig);
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [days, setDays] = useState<DailyCheckRangeDay[]>([]);
-  const [remindersEnabled, setRemindersEnabled] = useState(true);
 
   const loadOverview = useCallback(async () => {
     const { from, to } = getLast14DaysRange();
@@ -89,21 +79,11 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
     setDays(data);
   }, [timeZone]);
 
-  const loadReminderSettings = useCallback(async () => {
-    if (isExpoGo) {
-      setRemindersEnabled(false);
-      return;
-    }
-
-    const settings = await getDailyCheckReminderSettings();
-    setRemindersEnabled(settings.enabled);
-  }, [isExpoGo]);
-
   useEffect(() => {
     const run = async () => {
       try {
         setLoading(true);
-        await Promise.all([loadOverview(), loadReminderSettings()]);
+        await loadOverview();
       } catch (error) {
         console.error("Failed to load daily overview:", error);
         Alert.alert("Ошибка", "Не удалось загрузить обзор daily check");
@@ -113,7 +93,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
     };
 
     run();
-  }, [loadOverview, loadReminderSettings]);
+  }, [loadOverview]);
 
   const onRefresh = useCallback(async () => {
     try {
@@ -123,36 +103,6 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
       setRefreshing(false);
     }
   }, [loadOverview]);
-
-  const handleToggleReminders = useCallback(
-    async (value: boolean) => {
-      if (isExpoGo) {
-        Alert.alert(
-          "Expo Go",
-          "Напоминания лучше проверять в development build. В Expo Go notifications поддерживаются ограниченно."
-        );
-        return;
-      }
-
-      try {
-        setRemindersEnabled(value);
-
-        const current = await getDailyCheckReminderSettings();
-        const nextSettings = {
-          ...current,
-          enabled: value,
-        };
-
-        await saveDailyCheckReminderSettings(nextSettings);
-        await applyDailyCheckReminderSettings(nextSettings);
-      } catch (error) {
-        console.error("Failed to toggle reminders:", error);
-        setRemindersEnabled((prev) => !prev);
-        Alert.alert("Ошибка", "Не удалось обновить настройки напоминаний");
-      }
-    },
-    [isExpoGo]
-  );
 
   const daysMap = useMemo(() => {
     const map = new Map<string, DailyCheckRangeDay>();
@@ -290,23 +240,6 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
             daysMap.get(selectedToday)?.deadlineAt ?? new Date().toISOString()
           )}
         </Text>
-      </View>
-
-      <View style={styles.reminderCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.reminderTitle}>Напоминания</Text>
-          <Text style={styles.reminderText}>
-            {isExpoGo
-              ? "В Expo Go лучше не тестировать notifications"
-              : "Локальные уведомления daily check"}
-          </Text>
-        </View>
-
-        <Switch
-          value={remindersEnabled}
-          onValueChange={handleToggleReminders}
-          disabled={isExpoGo}
-        />
       </View>
 
       <TouchableOpacity
@@ -450,25 +383,6 @@ const styles = StyleSheet.create({
   },
   bottomText: {
     color: "#c9c9c9",
-    fontSize: 13,
-  },
-  reminderCard: {
-    backgroundColor: "#181818",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  reminderTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  reminderText: {
-    color: "#aaaaaa",
     fontSize: 13,
   },
   secondaryButton: {
