@@ -11,6 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import Constants from "expo-constants";
 
 import { getDailyCheckRange } from "../api/dailyCheck.api";
 import { DailyCheckRangeDay, DailyReportLifecycleStatus } from "../dailyCheck.types";
@@ -48,11 +49,11 @@ function getStatusColor(status: DailyReportLifecycleStatus) {
 function getStatusLabel(status: DailyReportLifecycleStatus) {
   switch (status) {
     case "completed":
-      return "completed";
+      return "done";
     case "partial":
-      return "partial";
+      return "part";
     case "missed":
-      return "missed";
+      return "miss";
     case "open":
     default:
       return "open";
@@ -61,6 +62,14 @@ function getStatusLabel(status: DailyReportLifecycleStatus) {
 
 export default function DailyCheckOverviewScreen({ navigation }: Props) {
   const timeZone = useMemo(() => getDeviceTimeZone(), []);
+
+  /**
+   * В Expo Go expo-notifications работает ограниченно.
+   * Чтобы не ловить ошибки на toggle / apply settings,
+   * скрываем активное управление напоминаниями в Expo Go.
+   */
+  const isExpoGo = Boolean(Constants.expoGoConfig);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [days, setDays] = useState<DailyCheckRangeDay[]>([]);
@@ -73,9 +82,14 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
   }, [timeZone]);
 
   const loadReminderSettings = useCallback(async () => {
+    if (isExpoGo) {
+      setRemindersEnabled(false);
+      return;
+    }
+
     const settings = await getDailyCheckReminderSettings();
     setRemindersEnabled(settings.enabled);
-  }, []);
+  }, [isExpoGo]);
 
   useEffect(() => {
     const run = async () => {
@@ -104,6 +118,14 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
 
   const handleToggleReminders = useCallback(
     async (value: boolean) => {
+      if (isExpoGo) {
+        Alert.alert(
+          "Expo Go",
+          "Напоминания лучше проверять в development build. В Expo Go notifications поддерживаются ограниченно."
+        );
+        return;
+      }
+
       try {
         setRemindersEnabled(value);
 
@@ -121,7 +143,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
         Alert.alert("Ошибка", "Не удалось обновить настройки напоминаний");
       }
     },
-    []
+    [isExpoGo]
   );
 
   const daysMap = useMemo(() => {
@@ -162,73 +184,14 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
     });
   }, [daysMap, timeZone]);
 
+  const firstRow = calendarDays.slice(0, 7);
+  const secondRow = calendarDays.slice(7, 14);
   const selectedToday = getTodayDateString();
 
-  if (loading) {
+  function renderRow(rowDays: DailyCheckRangeDay[]) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.loadingText}>Загрузка overview...</Text>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Text style={styles.title}>Daily Check</Text>
-      <Text style={styles.subtitle}>Последние 14 дней в виде сетки</Text>
-
-      <View style={styles.topButtonsRow}>
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => navigation.navigate("DailyDay", { date: selectedToday })}
-        >
-          <Text style={styles.primaryButtonText}>Открыть сегодняшний отчёт</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => navigation.navigate("DailyHabits")}
-        >
-          <Text style={styles.secondaryButtonText}>Привычки</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.reminderCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.reminderTitle}>Напоминания</Text>
-          <Text style={styles.reminderText}>Локальные уведомления daily check</Text>
-        </View>
-
-        <Switch value={remindersEnabled} onValueChange={handleToggleReminders} />
-      </View>
-
-      <View style={styles.legendCard}>
-        <Text style={styles.legendTitle}>Статусы</Text>
-
-        <View style={styles.legendRow}>
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("open") }]} />
-          <Text style={styles.legendText}>open</Text>
-
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("completed") }]} />
-          <Text style={styles.legendText}>completed</Text>
-        </View>
-
-        <View style={styles.legendRow}>
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("partial") }]} />
-          <Text style={styles.legendText}>partial</Text>
-
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("missed") }]} />
-          <Text style={styles.legendText}>missed</Text>
-        </View>
-      </View>
-
-      <View style={styles.grid}>
-        {calendarDays.map((day) => {
+      <View style={styles.daysRow}>
+        {rowDays.map((day) => {
           const isToday = day.date === selectedToday;
 
           return (
@@ -250,26 +213,89 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
           );
         })}
       </View>
+    );
+  }
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Нажми на день</Text>
-        <Text style={styles.infoText}>
-          Откроется отчёт за выбранную дату. Старые дни тоже можно редактировать.
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.loadingText}>Загрузка overview...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <Text style={styles.title}>Daily Check</Text>
+      <Text style={styles.subtitle}>Последние 14 дней</Text>
+
+      <View style={styles.legendCard}>
+        <Text style={styles.legendTitle}>Статусы</Text>
+
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("open") }]} />
+          <Text style={styles.legendText}>open</Text>
+
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("completed") }]} />
+          <Text style={styles.legendText}>completed</Text>
+        </View>
+
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("partial") }]} />
+          <Text style={styles.legendText}>partial</Text>
+
+          <View style={[styles.legendDot, { backgroundColor: getStatusColor("missed") }]} />
+          <Text style={styles.legendText}>missed</Text>
+        </View>
+      </View>
+
+      <View style={styles.calendarCard}>
+        {renderRow(firstRow)}
+        {renderRow(secondRow)}
+      </View>
+
+      <TouchableOpacity
+        style={styles.primaryButton}
+        onPress={() => navigation.navigate("DailyDay", { date: selectedToday })}
+      >
+        <Text style={styles.primaryButtonText}>Открыть отчёт</Text>
+      </TouchableOpacity>
+
+      <View style={styles.bottomCard}>
+        <Text style={styles.bottomTitle}>Сегодня</Text>
+        <Text style={styles.bottomText}>
+          Дедлайн: {formatDeadlineLabel(daysMap.get(selectedToday)?.deadlineAt ?? new Date().toISOString())}
         </Text>
       </View>
 
-      {calendarDays.length > 0 ? (
-        <View style={styles.bottomCard}>
-          <Text style={styles.bottomTitle}>Сегодня</Text>
-          <Text style={styles.bottomText}>
-            Дедлайн: {formatDeadlineLabel(daysMap.get(selectedToday)?.deadlineAt ?? new Date().toISOString())}
+      <View style={styles.reminderCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.reminderTitle}>Напоминания</Text>
+          <Text style={styles.reminderText}>
+            {isExpoGo
+              ? "В Expo Go лучше не тестировать notifications"
+              : "Локальные уведомления daily check"}
           </Text>
-
-          {daysMap.get(selectedToday)?.wasEditedAfterDeadline ? (
-            <Text style={styles.lateEditText}>Сегодняшний день уже менялся после дедлайна</Text>
-          ) : null}
         </View>
-      ) : null}
+
+        <Switch
+          value={remindersEnabled}
+          onValueChange={handleToggleReminders}
+          disabled={isExpoGo}
+        />
+      </View>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate("DailyHabits")}
+      >
+        <Text style={styles.secondaryButtonText}>Привычки</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -305,51 +331,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
   },
-  topButtonsRow: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  primaryButton: {
-    backgroundColor: "#2d5bff",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  primaryButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  secondaryButton: {
-    backgroundColor: "#1c1c1c",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  secondaryButtonText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  reminderCard: {
-    backgroundColor: "#181818",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  reminderTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  reminderText: {
-    color: "#aaaaaa",
-    fontSize: 13,
-  },
   legendCard: {
     backgroundColor: "#181818",
     borderRadius: 14,
@@ -378,18 +359,22 @@ const styles = StyleSheet.create({
     color: "#d0d0d0",
     marginRight: 12,
   },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 10,
+  calendarCard: {
+    backgroundColor: "#181818",
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 16,
   },
+  daysRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   dayCell: {
-    width: "23%",
-    minHeight: 92,
-    borderRadius: 14,
-    padding: 10,
+    width: "13.2%",
+    aspectRatio: 1,
+    borderRadius: 12,
+    padding: 6,
     justifyContent: "space-between",
   },
   todayCell: {
@@ -398,39 +383,35 @@ const styles = StyleSheet.create({
   },
   dayCellDate: {
     color: "#ffffff",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "700",
   },
   dayCellStatus: {
     color: "#ffffff",
-    fontSize: 11,
+    fontSize: 9,
   },
   dayCellMood: {
     color: "#ffffff",
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: "700",
   },
-  infoCard: {
-    backgroundColor: "#181818",
-    borderRadius: 14,
-    padding: 14,
+  primaryButton: {
+    backgroundColor: "#2d5bff",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
     marginBottom: 16,
   },
-  infoTitle: {
+  primaryButtonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "700",
-    marginBottom: 6,
-  },
-  infoText: {
-    color: "#bdbdbd",
-    fontSize: 13,
-    lineHeight: 18,
   },
   bottomCard: {
     backgroundColor: "#181818",
     borderRadius: 14,
     padding: 14,
+    marginBottom: 16,
   },
   bottomTitle: {
     color: "#ffffff",
@@ -442,10 +423,34 @@ const styles = StyleSheet.create({
     color: "#c9c9c9",
     fontSize: 13,
   },
-  lateEditText: {
-    color: "#ffd166",
+  reminderCard: {
+    backgroundColor: "#181818",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  reminderTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  reminderText: {
+    color: "#aaaaaa",
     fontSize: 13,
+  },
+  secondaryButton: {
+    backgroundColor: "#1c1c1c",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  secondaryButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
     fontWeight: "600",
-    marginTop: 8,
   },
 });
