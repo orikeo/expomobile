@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { getDailyCheckRange } from "../api/dailyCheck.api";
 import { DailyCheckRangeDay, DailyReportLifecycleStatus } from "../dailyCheck.types";
@@ -25,7 +26,9 @@ import {
 
 type Props = NativeStackScreenProps<DailyCheckStackParamList, "DailyOverview">;
 
-function getStatusColor(status: DailyReportLifecycleStatus) {
+type OverviewDisplayStatus = "open" | "completed" | "partial" | "missed";
+
+function getStatusColor(status: OverviewDisplayStatus) {
   switch (status) {
     case "completed":
       return "#244b2f";
@@ -39,7 +42,7 @@ function getStatusColor(status: DailyReportLifecycleStatus) {
   }
 }
 
-function getStatusLegendLabel(status: DailyReportLifecycleStatus) {
+function getStatusLegendLabel(status: OverviewDisplayStatus) {
   switch (status) {
     case "completed":
       return "completed";
@@ -53,7 +56,7 @@ function getStatusLegendLabel(status: DailyReportLifecycleStatus) {
   }
 }
 
-function getStatusCellMark(status: DailyReportLifecycleStatus) {
+function getStatusCellMark(status: OverviewDisplayStatus) {
   switch (status) {
     case "completed":
       return "✓";
@@ -67,11 +70,50 @@ function getStatusCellMark(status: DailyReportLifecycleStatus) {
   }
 }
 
+/**
+ * Для overview нам важнее не только lifecycle-статус дня,
+ * но и визуальная заполненность.
+ *
+ * Почему:
+ * - backend до дедлайна хранит день как "open"
+ * - поэтому даже 10/10 до дедлайна остаётся синим
+ *
+ * Здесь делаем display-статус:
+ * - закрытые дни используем как есть
+ * - открытые дни красим по фактической заполненности
+ */
+function getOverviewDisplayStatus(day: DailyCheckRangeDay): OverviewDisplayStatus {
+  if (day.status !== "open") {
+    return day.status;
+  }
+
+  const answeredCount = day.yesCount + day.noCount + day.skippedCount;
+  const hasReportContent =
+    day.moodScore !== null ||
+    Boolean(day.summary?.trim()) ||
+    Boolean(day.note?.trim());
+
+  if (day.habitsTotal === 0) {
+    return hasReportContent ? "completed" : "open";
+  }
+
+  if (answeredCount === 0 && !hasReportContent) {
+    return "open";
+  }
+
+  if (answeredCount >= day.habitsTotal) {
+    return "completed";
+  }
+
+  return "partial";
+}
+
 export default function DailyCheckOverviewScreen({ navigation }: Props) {
   const timeZone = useMemo(() => getDeviceTimeZone(), []);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [days, setDays] = useState<DailyCheckRangeDay[]>([]);
+  const hasLoadedOnceRef = useRef(false);
 
   const loadOverview = useCallback(async () => {
     const { from, to } = getLast14DaysRange();
@@ -79,30 +121,74 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
     setDays(data);
   }, [timeZone]);
 
-  useEffect(() => {
-    const run = async () => {
+  const loadOverviewWithState = useCallback(
+    async (showLoader: boolean) => {
       try {
-        setLoading(true);
+        if (showLoader) {
+          setLoading(true);
+        }
+
         await loadOverview();
       } catch (error) {
         console.error("Failed to load daily overview:", error);
         Alert.alert("Ошибка", "Не удалось загрузить обзор daily check");
       } finally {
-        setLoading(false);
+        if (showLoader) {
+          setLoading(false);
+        }
       }
-    };
+    },
+    [loadOverview]
+  );
 
-    run();
-  }, [loadOverview]);
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const run = async () => {
+        try {
+          if (!hasLoadedOnceRef.current) {
+            setLoading(true);
+          }
+
+          const { from, to } = getLast14DaysRange();
+          const data = await getDailyCheckRange(from, to, timeZone);
+
+          if (!isActive) {
+            return;
+          }
+
+          setDays(data);
+          hasLoadedOnceRef.current = true;
+        } catch (error) {
+          console.error("Failed to load daily overview:", error);
+
+          if (!hasLoadedOnceRef.current && isActive) {
+            Alert.alert("Ошибка", "Не удалось загрузить обзор daily check");
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false);
+          }
+        }
+      };
+
+      run();
+
+      return () => {
+        isActive = false;
+      };
+    }, [timeZone])
+  );
 
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await loadOverview();
+      await loadOverviewWithState(false);
     } finally {
       setRefreshing(false);
     }
-  }, [loadOverview]);
+  }, [loadOverviewWithState]);
 
   const daysMap = useMemo(() => {
     const map = new Map<string, DailyCheckRangeDay>();
@@ -150,15 +236,16 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
     return (
       <View style={styles.daysRow}>
         {rowDays.map((day) => {
+          const displayStatus = getOverviewDisplayStatus(day);
           const isToday = day.date === selectedToday;
-          const mark = getStatusCellMark(day.status);
+          const mark = getStatusCellMark(displayStatus);
 
           return (
             <TouchableOpacity
               key={day.date}
               style={[
                 styles.dayCell,
-                { backgroundColor: getStatusColor(day.status) },
+                { backgroundColor: getStatusColor(displayStatus) },
                 isToday && styles.todayCell,
               ]}
               onPress={() => navigation.navigate("DailyDay", { date: day.date })}
