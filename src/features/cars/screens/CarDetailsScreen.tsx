@@ -1,5 +1,7 @@
 /**
- * Экран деталей машины
+ * =========================================================
+ * CAR DETAILS SCREEN
+ * =========================================================
  *
  * Пользователь попадает сюда после выбора машины.
  * Отсюда можно перейти в:
@@ -14,6 +16,7 @@ import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { CarsStackParamList } from "../../../navigation/CarsStack";
+import { colors } from "../../../theme/color";
 
 type RouteType = RouteProp<CarsStackParamList, "CarDetails">;
 type NavigationType = NativeStackNavigationProp<
@@ -35,11 +38,11 @@ export default function CarDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{name}</Text>
-
-      <Text style={styles.subtitle}>Управление машиной</Text>
-
-      <Text style={styles.carId}>ID: {carId}</Text>
+      <View style={styles.heroCard}>
+        <Text style={styles.title}>{name}</Text>
+        <Text style={styles.subtitle}>Управление машиной</Text>
+        <Text style={styles.carId}>ID: {carId}</Text>
+      </View>
 
       <TouchableOpacity
         style={styles.item}
@@ -52,7 +55,7 @@ export default function CarDetailsScreen() {
       >
         <Text style={styles.itemTitle}>Fuel logs</Text>
         <Text style={styles.itemDescription}>
-          Посмотреть историю заправок
+          История заправок, расход и стоимость топлива
         </Text>
       </TouchableOpacity>
 
@@ -67,7 +70,7 @@ export default function CarDetailsScreen() {
       >
         <Text style={styles.itemTitle}>Repairs</Text>
         <Text style={styles.itemDescription}>
-          Посмотреть историю ремонтов
+          История ремонтов и обслуживания машины
         </Text>
       </TouchableOpacity>
     </View>
@@ -77,45 +80,56 @@ export default function CarDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: "#fff",
+    padding: 16,
+    backgroundColor: colors.background,
+  },
+
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 18,
   },
 
   title: {
     fontSize: 28,
     fontWeight: "700",
     marginBottom: 8,
+    color: colors.textPrimary,
   },
 
   subtitle: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 15,
+    color: colors.textSecondary,
     marginBottom: 10,
   },
 
   carId: {
     fontSize: 12,
-    color: "#999",
-    marginBottom: 24,
+    color: colors.textMuted,
   },
 
   item: {
     padding: 18,
     borderWidth: 1,
-    borderColor: "#e8e8e8",
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: 16,
     marginBottom: 14,
-    backgroundColor: "#fafafa",
+    backgroundColor: colors.surface,
   },
 
   itemTitle: {
     fontSize: 17,
-    fontWeight: "600",
-    marginBottom: 4,
+    fontWeight: "700",
+    marginBottom: 6,
+    color: colors.textPrimary,
   },
 
   itemDescription: {
     fontSize: 14,
-    color: "#666",
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
 });

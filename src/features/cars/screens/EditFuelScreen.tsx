@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  ScrollView,
 } from "react-native";
 
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -15,6 +16,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { CarsStackParamList } from "../../../navigation/CarsStack";
 import { updateFuelLog } from "../api/fuel.api";
+import { colors } from "../../../theme/color";
 
 type RouteType = RouteProp<CarsStackParamList, "EditFuel">;
 type NavigationType = NativeStackNavigationProp<CarsStackParamList, "EditFuel">;
@@ -27,7 +29,9 @@ export default function EditFuelScreen() {
 
   const [fuelDate, setFuelDate] = useState(fuelLog.fuelDate);
   const [liters, setLiters] = useState(String(fuelLog.liters));
-  const [pricePerLiter, setPricePerLiter] = useState(String(fuelLog.pricePerLiter));
+  const [pricePerLiter, setPricePerLiter] = useState(
+    String(fuelLog.pricePerLiter)
+  );
   const [odometer, setOdometer] = useState(
     fuelLog.odometer !== null ? String(fuelLog.odometer) : ""
   );
@@ -41,6 +45,9 @@ export default function EditFuelScreen() {
     });
   }, [navigation, name]);
 
+  /**
+   * Preview общей стоимости только для UI.
+   */
   const totalPricePreview = useMemo(() => {
     const litersNumber = Number(liters.replace(",", "."));
     const priceNumber = Number(pricePerLiter.replace(",", "."));
@@ -84,7 +91,9 @@ export default function EditFuelScreen() {
 
     if (
       odometer.trim() &&
-      (Number.isNaN(odometerNumber) || odometerNumber === null || odometerNumber < 0)
+      (Number.isNaN(odometerNumber) ||
+        odometerNumber === null ||
+        odometerNumber < 0)
     ) {
       Alert.alert("Ошибка", "Пробег не может быть отрицательным");
       return;
@@ -114,111 +123,166 @@ export default function EditFuelScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Fuel date</Text>
-      <TextInput
-        style={styles.input}
-        value={fuelDate}
-        onChangeText={setFuelDate}
-        placeholder="YYYY-MM-DD"
-      />
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Edit fuel log</Text>
+        <Text style={styles.sectionSubtitle}>
+          Редактирование записи для {name}
+        </Text>
 
-      <Text style={styles.label}>Liters</Text>
-      <TextInput
-        style={styles.input}
-        value={liters}
-        onChangeText={setLiters}
-        keyboardType="decimal-pad"
-        placeholder="40.5"
-      />
+        <Text style={styles.label}>Fuel date</Text>
+        <TextInput
+          style={styles.input}
+          value={fuelDate}
+          onChangeText={setFuelDate}
+          placeholder="YYYY-MM-DD"
+          placeholderTextColor={colors.placeholder}
+          editable={!saving}
+        />
 
-      <Text style={styles.label}>Price per liter</Text>
-      <TextInput
-        style={styles.input}
-        value={pricePerLiter}
-        onChangeText={setPricePerLiter}
-        keyboardType="decimal-pad"
-        placeholder="56.20"
-      />
+        <Text style={styles.label}>Liters</Text>
+        <TextInput
+          style={styles.input}
+          value={liters}
+          onChangeText={setLiters}
+          keyboardType="decimal-pad"
+          placeholder="40.5"
+          placeholderTextColor={colors.placeholder}
+          editable={!saving}
+        />
 
-      <Text style={styles.label}>Total price</Text>
-      <View style={styles.readonlyBox}>
-        <Text style={styles.readonlyText}>{totalPricePreview || "—"}</Text>
+        <Text style={styles.label}>Price per liter</Text>
+        <TextInput
+          style={styles.input}
+          value={pricePerLiter}
+          onChangeText={setPricePerLiter}
+          keyboardType="decimal-pad"
+          placeholder="56.20"
+          placeholderTextColor={colors.placeholder}
+          editable={!saving}
+        />
+
+        <Text style={styles.label}>Total price</Text>
+        <View style={styles.readonlyBox}>
+          <Text style={styles.readonlyText}>{totalPricePreview || "—"}</Text>
+        </View>
+
+        <Text style={styles.label}>Odometer (optional)</Text>
+        <TextInput
+          style={styles.input}
+          value={odometer}
+          onChangeText={setOdometer}
+          keyboardType="number-pad"
+          placeholder="154000"
+          placeholderTextColor={colors.placeholder}
+          editable={!saving}
+        />
+
+        <Text style={styles.label}>Station (optional)</Text>
+        <TextInput
+          style={styles.input}
+          value={station}
+          onChangeText={setStation}
+          placeholder="OKKO"
+          placeholderTextColor={colors.placeholder}
+          editable={!saving}
+        />
+
+        <View style={styles.switchRow}>
+          <View>
+            <Text style={styles.switchLabel}>Full tank</Text>
+            <Text style={styles.switchHint}>
+              Включай, если это была заправка до полного бака
+            </Text>
+          </View>
+
+          <Switch value={fullTank} onValueChange={setFullTank} disabled={saving} />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.button, saving && styles.buttonDisabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.buttonText}>Save changes</Text>
+          )}
+        </TouchableOpacity>
       </View>
-
-      <Text style={styles.label}>Odometer (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={odometer}
-        onChangeText={setOdometer}
-        keyboardType="number-pad"
-        placeholder="154000"
-      />
-
-      <Text style={styles.label}>Station (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={station}
-        onChangeText={setStation}
-        placeholder="OKKO"
-      />
-
-      <View style={styles.switchRow}>
-        <Text style={styles.switchLabel}>Full tank</Text>
-        <Switch value={fullTank} onValueChange={setFullTank} />
-      </View>
-
-      <TouchableOpacity
-        style={[styles.button, saving && styles.buttonDisabled]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Save changes</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
+  },
+
+  content: {
+    padding: 16,
+    paddingBottom: 28,
+  },
+
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 16,
+  },
+
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 6,
+  },
+
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 18,
   },
 
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 8,
     marginTop: 10,
+    color: colors.textPrimary,
   },
 
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: "#fafafa",
+    color: colors.textPrimary,
+    backgroundColor: colors.surfaceSecondary,
   },
 
   readonlyBox: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "#f2f2f2",
+    backgroundColor: colors.background,
   },
 
   readonlyText: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 18,
+    color: colors.textPrimary,
+    fontWeight: "700",
   },
 
   switchRow: {
@@ -227,18 +291,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 12,
   },
 
   switchLabel: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+
+  switchHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    maxWidth: 240,
   },
 
   button: {
     marginTop: 24,
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.primary,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: "center",
   },
 
@@ -247,8 +320,8 @@ const styles = StyleSheet.create({
   },
 
   buttonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });

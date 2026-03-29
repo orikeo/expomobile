@@ -6,8 +6,18 @@ import FuelLogsScreen from "../features/cars/screens/FuelLogsScreen";
 import RepairsScreen from "../features/cars/screens/RepairsScreen";
 import CreateFuelScreen from "../features/cars/screens/CreateFuelScreen";
 import EditFuelScreen from "../features/cars/screens/EditFuelScreen";
+import { colors } from "../theme/color";
 
-
+/**
+ * =========================================================
+ * CARS STACK PARAMS
+ * =========================================================
+ *
+ * Здесь описываем все параметры экранов внутри машины / топлива / ремонтов.
+ * Это важно для TypeScript:
+ *  - навигация становится типобезопасной
+ *  - меньше шансов передать неправильные данные
+ */
 export type CarsStackParamList = {
   CarsList: undefined;
 
@@ -50,9 +60,30 @@ export type CarsStackParamList = {
 
 const Stack = createNativeStackNavigator<CarsStackParamList>();
 
+/**
+ * =========================================================
+ * CARS STACK
+ * =========================================================
+ *
+ * Пока делаем единый тёмный header только для car-модуля.
+ * Позже, если захочешь, это можно вынести в общий navigator theme.
+ */
 export default function CarsStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.surface,
+        },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: {
+          fontWeight: "700",
+        },
+        contentStyle: {
+          backgroundColor: colors.background,
+        },
+      }}
+    >
       <Stack.Screen
         name="CarsList"
         component={CarsScreen}
@@ -84,10 +115,10 @@ export default function CarsStack() {
       />
 
       <Stack.Screen
-  name="EditFuel"
-  component={EditFuelScreen}
-  options={{ title: "Edit Fuel" }}
-/>
+        name="EditFuel"
+        component={EditFuelScreen}
+        options={{ title: "Edit Fuel" }}
+      />
     </Stack.Navigator>
   );
 }
