@@ -1,22 +1,12 @@
-/**
- * =========================================================
- * DAILY CHECK STATUS
- * =========================================================
- */
 export type DailyCheckStatus = "yes" | "no" | "skipped";
-
-/**
- * =========================================================
- * DAILY CHECK APPLIES MODE
- * =========================================================
- */
 export type DailyCheckAppliesMode = "every_day" | "selected_days";
 
-/**
- * =========================================================
- * DAY REPORT
- * =========================================================
- */
+export type DailyReportLifecycleStatus =
+  | "open"
+  | "completed"
+  | "partial"
+  | "missed";
+
 export interface DailyCheckDayReport {
   moodScore: number | null;
   moodComment: string | null;
@@ -25,11 +15,17 @@ export interface DailyCheckDayReport {
   musicOfDay: string | null;
 }
 
-/**
- * =========================================================
- * DAILY CHECK ITEM
- * =========================================================
- */
+export interface DailyCheckDayLifecycle {
+  status: DailyReportLifecycleStatus;
+  deadlineAt: string;
+  closedAt: string | null;
+  completedAt: string | null;
+  wasEditedAfterDeadline: boolean;
+  timeZone: string;
+  isOverdue: boolean;
+  canEdit: boolean;
+}
+
 export interface DailyCheckItem {
   id: string;
   userId: string;
@@ -43,11 +39,6 @@ export interface DailyCheckItem {
   updatedAt: string;
 }
 
-/**
- * =========================================================
- * DAY ITEM FROM BACKEND
- * =========================================================
- */
 export interface DailyCheckDayItem {
   id: string;
   title: string;
@@ -60,24 +51,13 @@ export interface DailyCheckDayItem {
   skipReason: string | null;
 }
 
-/**
- * =========================================================
- * GET DAY RESPONSE
- * =========================================================
- */
 export interface DailyCheckDayResponse {
   date: string;
   report: DailyCheckDayReport | null;
+  lifecycle: DailyCheckDayLifecycle;
   items: DailyCheckDayItem[];
 }
 
-/**
- * =========================================================
- * RANGE DAY SUMMARY
- * =========================================================
- *
- * Это одна карточка дня для 2-недельного overview.
- */
 export interface DailyCheckRangeDay {
   date: string;
   moodScore: number | null;
@@ -89,26 +69,25 @@ export interface DailyCheckRangeDay {
   skippedCount: number;
   completionRate: number;
   finalScore: number;
+
+  status: DailyReportLifecycleStatus;
+  deadlineAt: string;
+  closedAt: string | null;
+  wasEditedAfterDeadline: boolean;
+  timeZone: string;
+  isOverdue: boolean;
+  canEdit: boolean;
 }
 
-/**
- * =========================================================
- * SAVE ENTRY PAYLOAD
- * =========================================================
- */
 export interface SaveDailyCheckEntryPayload {
   itemId: string;
   status: DailyCheckStatus;
   skipReason?: string | null;
 }
 
-/**
- * =========================================================
- * SAVE DAY PAYLOAD
- * =========================================================
- */
 export interface SaveDailyCheckDayPayload {
   date: string;
+  timeZone?: string;
   report?: {
     moodScore?: number | null;
     moodComment?: string | null;
@@ -119,11 +98,6 @@ export interface SaveDailyCheckDayPayload {
   entries: SaveDailyCheckEntryPayload[];
 }
 
-/**
- * =========================================================
- * CREATE / UPDATE HABIT PAYLOADS
- * =========================================================
- */
 export interface CreateDailyCheckItemPayload {
   title: string;
   emoji?: string | null;
@@ -142,11 +116,6 @@ export interface UpdateDailyCheckItemPayload {
   isActive?: boolean;
 }
 
-/**
- * =========================================================
- * LOCAL UI ITEM STATE
- * =========================================================
- */
 export interface DailyCheckDayItemState {
   id: string;
   title: string;

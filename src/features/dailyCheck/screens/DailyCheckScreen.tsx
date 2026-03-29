@@ -12,30 +12,52 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import {
-  getDailyCheckDay,
-  saveDailyCheckDay,
-} from "../api/dailyCheck.api";
+import { getDailyCheckDay, saveDailyCheckDay } from "../api/dailyCheck.api";
 import {
   DailyCheckDayItemState,
+  DailyCheckDayLifecycle,
   DailyCheckStatus,
+  DailyReportLifecycleStatus,
 } from "../dailyCheck.types";
 import { HabitStatusRow } from "../components/HabitStatusRow";
 import { DailyCheckStackParamList } from "../../../navigation/DailyCheckNavigator";
-
-/**
- * =========================================================
- * HELPERS
- * =========================================================
- */
-function getTodayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import {
+  formatDeadlineLabel,
+  formatDisplayDate,
+  getDeviceTimeZone,
+  getTodayDateString,
+} from "../dailyCheck.time";
 
 type Props = NativeStackScreenProps<DailyCheckStackParamList, "DailyDay">;
 
+const EMPTY_LIFECYCLE: DailyCheckDayLifecycle = {
+  status: "open",
+  deadlineAt: new Date().toISOString(),
+  closedAt: null,
+  completedAt: null,
+  wasEditedAfterDeadline: false,
+  timeZone: "UTC",
+  isOverdue: false,
+  canEdit: true,
+};
+
+function getLifecycleLabel(status: DailyReportLifecycleStatus) {
+  switch (status) {
+    case "completed":
+      return "Закрыт: заполнен";
+    case "partial":
+      return "Закрыт: частично";
+    case "missed":
+      return "Закрыт: пропущен";
+    case "open":
+    default:
+      return "Отчёт ещё открыт";
+  }
+}
+
 export default function DailyCheckScreen({ route, navigation }: Props) {
   const date = route.params?.date ?? getTodayDateString();
+  const timeZone = useMemo(() => getDeviceTimeZone(), []);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -46,27 +68,25 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
   const [summary, setSummary] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [musicOfDay, setMusicOfDay] = useState<string>("");
-
+  const [lifecycle, setLifecycle] = useState<DailyCheckDayLifecycle>(EMPTY_LIFECYCLE);
   const [items, setItems] = useState<DailyCheckDayItemState[]>([]);
 
-  /**
-   * Обновим заголовок, чтобы было видно дату.
-   */
   useEffect(() => {
     navigation.setOptions({
-      title: `Отчёт: ${date}`,
+      title: `Отчёт: ${formatDisplayDate(date)}`,
     });
   }, [date, navigation]);
 
   const loadDay = useCallback(async () => {
     try {
-      const response = await getDailyCheckDay(date);
+      const response = await getDailyCheckDay(date, timeZone);
 
       setMoodScore(response.report?.moodScore ?? null);
       setMoodComment(response.report?.moodComment ?? "");
       setSummary(response.report?.summary ?? "");
       setNote(response.report?.note ?? "");
       setMusicOfDay(response.report?.musicOfDay ?? "");
+      setLifecycle(response.lifecycle);
 
       setItems(
         response.items.map((item) => ({
@@ -81,7 +101,7 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
       console.error("Failed to load daily check day:", error);
       Alert.alert("Ошибка", "Не удалось загрузить отчёт за день");
     }
-  }, [date]);
+  }, [date, timeZone]);
 
   useEffect(() => {
     const run = async () => {
@@ -132,6 +152,7 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
   const payload = useMemo(() => {
     return {
       date,
+      timeZone,
       report: {
         moodScore,
         moodComment: moodComment.trim() || null,
@@ -148,13 +169,22 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
             item.status === "skipped" ? item.skipReason?.trim() || null : null,
         })),
     };
-  }, [date, items, moodComment, moodScore, musicOfDay, note, summary]);
+  }, [date, items, moodComment, moodScore, musicOfDay, note, summary, timeZone]);
 
   const handleSave = useCallback(async () => {
     try {
       setSaving(true);
-      await saveDailyCheckDay(payload);
-      Alert.alert("Успешно", "Отчёт за день сохранён");
+
+      const response = await saveDailyCheckDay(payload);
+      setLifecycle(response.lifecycle);
+
+      Alert.alert(
+        "Сохранено",
+        response.lifecycle.wasEditedAfterDeadline
+          ? "Отчёт сохранён. День был изменён уже после дедлайна."
+          : "Отчёт за день сохранён"
+      );
+
       await loadDay();
     } catch (error) {
       console.error("Failed to save daily check day:", error);
@@ -204,13 +234,25 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Отчёт за день</Text>
-      <Text style={styles.subtitle}>Дата: {date}</Text>
+      <Text style={styles.subtitle}>Дата: {formatDisplayDate(date)}</Text>
+
+      <View style={styles.metaCard}>
+        <Text style={styles.metaTitle}>{getLifecycleLabel(lifecycle.status)}</Text>
+        <Text style={styles.metaText}>
+          Дедлайн: {formatDeadlineLabel(lifecycle.deadlineAt)}
+        </Text>
+        <Text style={styles.metaText}>Таймзона: {lifecycle.timeZone}</Text>
+
+        {lifecycle.wasEditedAfterDeadline ? (
+          <Text style={styles.metaWarning}>
+            Этот день уже менялся после дедлайна
+          </Text>
+        ) : null}
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Настроение</Text>
@@ -233,7 +275,7 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
           style={styles.input}
           value={summary}
           onChangeText={setSummary}
-          placeholder="Короткий смысл / итог дня"
+          placeholder="Короткий итог дня"
           placeholderTextColor="#777"
           maxLength={160}
         />
@@ -279,9 +321,7 @@ export default function DailyCheckScreen({ route, navigation }: Props) {
               status={item.status}
               skipReason={item.skipReason}
               onChangeStatus={(status) => handleChangeStatus(item.id, status)}
-              onChangeSkipReason={(value) =>
-                handleChangeSkipReason(item.id, value)
-              }
+              onChangeSkipReason={(value) => handleChangeSkipReason(item.id, value)}
             />
           ))
         )}
@@ -329,16 +369,54 @@ const styles = StyleSheet.create({
   subtitle: {
     color: "#aaaaaa",
     fontSize: 14,
-    marginBottom: 20,
+    marginBottom: 14,
+  },
+  metaCard: {
+    backgroundColor: "#181818",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  metaTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  metaText: {
+    color: "#bdbdbd",
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  metaWarning: {
+    color: "#ffd166",
+    fontSize: 13,
+    marginTop: 8,
+    fontWeight: "600",
   },
   section: {
-    marginBottom: 22,
+    backgroundColor: "#181818",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
   },
   sectionTitle: {
     color: "#ffffff",
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#343434",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#ffffff",
+    backgroundColor: "#111111",
+  },
+  multilineInput: {
+    minHeight: 120,
   },
   moodButtonsContainer: {
     flexDirection: "row",
@@ -347,51 +425,40 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   moodButton: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 10,
+    backgroundColor: "#111111",
     borderWidth: 1,
-    borderColor: "#444",
+    borderColor: "#333333",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#171717",
   },
   moodButtonSelected: {
-    backgroundColor: "#2c2c2c",
-    borderColor: "#999",
+    backgroundColor: "#2d5bff",
+    borderColor: "#2d5bff",
   },
   moodButtonText: {
-    color: "#cccccc",
-    fontWeight: "600",
+    color: "#cfcfcf",
+    fontSize: 15,
+    fontWeight: "700",
   },
   moodButtonTextSelected: {
     color: "#ffffff",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#444",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    color: "#ffffff",
-    backgroundColor: "#171717",
-  },
-  multilineInput: {
-    minHeight: 110,
-  },
   emptyText: {
-    color: "#aaaaaa",
+    color: "#bdbdbd",
     fontSize: 14,
   },
   saveButton: {
-    marginTop: 8,
-    backgroundColor: "#2d2d2d",
+    backgroundColor: "#2d5bff",
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
+    marginTop: 4,
   },
   saveButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.7,
   },
   saveButtonText: {
     color: "#ffffff",
