@@ -15,6 +15,7 @@ interface HabitStatusRowProps {
   skipReason: string | null;
   onChangeStatus: (status: DailyCheckStatus) => void;
   onChangeSkipReason: (value: string) => void;
+  disabled?: boolean;
 }
 
 export function HabitStatusRow({
@@ -24,6 +25,7 @@ export function HabitStatusRow({
   skipReason,
   onChangeStatus,
   onChangeSkipReason,
+  disabled = false,
 }: HabitStatusRowProps) {
   const renderStatusButton = (
     value: DailyCheckStatus,
@@ -32,13 +34,26 @@ export function HabitStatusRow({
   ) => {
     return (
       <TouchableOpacity
-        style={[styles.statusButton, isSelected && styles.statusButtonSelected]}
-        onPress={() => onChangeStatus(value)}
+        style={[
+          styles.statusButton,
+          isSelected && styles.statusButtonSelected,
+          disabled && styles.statusButtonDisabled,
+        ]}
+        onPress={() => {
+          if (disabled) {
+            return;
+          }
+
+          onChangeStatus(value);
+        }}
+        disabled={disabled}
+        activeOpacity={disabled ? 1 : 0.7}
       >
         <Text
           style={[
             styles.statusButtonText,
             isSelected && styles.statusButtonTextSelected,
+            disabled && styles.statusButtonTextDisabled,
           ]}
         >
           {label}
@@ -48,7 +63,7 @@ export function HabitStatusRow({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, disabled && styles.containerDisabled]}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>
           {emoji ? `${emoji} ` : ""}
@@ -67,9 +82,20 @@ export function HabitStatusRow({
           <Text style={styles.skipReasonLabel}>Причина пропуска</Text>
           <TextInput
             value={skipReason ?? ""}
-            onChangeText={onChangeSkipReason}
+            onChangeText={(value) => {
+              if (disabled) {
+                return;
+              }
+
+              onChangeSkipReason(value);
+            }}
             placeholder="Например: был на работе весь день"
-            style={styles.skipReasonInput}
+            placeholderTextColor="#777777"
+            style={[
+              styles.skipReasonInput,
+              disabled && styles.skipReasonInputDisabled,
+            ]}
+            editable={!disabled}
           />
         </View>
       )}
@@ -83,6 +109,9 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     backgroundColor: "#1b1b1b",
+  },
+  containerDisabled: {
+    opacity: 0.78,
   },
   headerRow: {
     marginBottom: 12,
@@ -110,6 +139,9 @@ const styles = StyleSheet.create({
     borderColor: "#888",
     backgroundColor: "#2a2a2a",
   },
+  statusButtonDisabled: {
+    backgroundColor: "#151515",
+  },
   statusButtonText: {
     color: "#cccccc",
     fontSize: 14,
@@ -117,6 +149,9 @@ const styles = StyleSheet.create({
   },
   statusButtonTextSelected: {
     color: "#ffffff",
+  },
+  statusButtonTextDisabled: {
+    color: "#9a9a9a",
   },
   skipReasonWrapper: {
     marginTop: 12,
@@ -134,5 +169,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: "#ffffff",
     backgroundColor: "#111",
+  },
+  skipReasonInputDisabled: {
+    backgroundColor: "#161616",
+    color: "#b8b8b8",
   },
 });

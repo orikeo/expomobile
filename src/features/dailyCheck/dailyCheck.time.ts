@@ -4,6 +4,8 @@
  * =========================================================
  */
 
+export const DAILY_CHECK_DEADLINE_HOUR = 12;
+
 export function getDeviceTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -24,14 +26,42 @@ export function getTodayDateString(): string {
   return formatDateToLocalYmd(new Date());
 }
 
+/**
+ * Активная дата daily check:
+ * - с 00:00 до 11:59 открываем отчёт за предыдущий день
+ * - с 12:00 и позже открываем отчёт за текущий день
+ *
+ * Это считается по локальному времени устройства.
+ */
+export function getCurrentDailyCheckDateString(now = new Date()): string {
+  const result = new Date(now);
+
+  if (result.getHours() < DAILY_CHECK_DEADLINE_HOUR) {
+    result.setDate(result.getDate() - 1);
+  }
+
+  return formatDateToLocalYmd(result);
+}
+
+export function parseLocalYmdToDate(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export function addDays(date: Date, days: number): Date {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return copy;
 }
 
-export function getLast14DaysRange() {
-  const endDate = new Date();
+/**
+ * Диапазон последних 14 дней.
+ *
+ * По умолчанию строится от "активной даты отчёта", а не просто от today.
+ * Это важно, потому что утром до дедлайна активным ещё считается вчерашний день.
+ */
+export function getLast14DaysRange(anchorDate = getCurrentDailyCheckDateString()) {
+  const endDate = parseLocalYmdToDate(anchorDate);
   const startDate = addDays(endDate, -13);
 
   return {
@@ -40,12 +70,14 @@ export function getLast14DaysRange() {
   };
 }
 
-export function getLast14DaysDateList(): string[] {
+export function getLast14DaysDateList(
+  anchorDate = getCurrentDailyCheckDateString()
+): string[] {
   const result: string[] = [];
-  const today = new Date();
+  const endDate = parseLocalYmdToDate(anchorDate);
 
   for (let offset = 13; offset >= 0; offset -= 1) {
-    result.push(formatDateToLocalYmd(addDays(today, -offset)));
+    result.push(formatDateToLocalYmd(addDays(endDate, -offset)));
   }
 
   return result;
@@ -70,6 +102,27 @@ export function formatDayShort(value: string): string {
     day: "2-digit",
     month: "2-digit",
   });
+}
+
+/**
+ * Локальный fallback-дедлайн для отчёта за конкретную дату:
+ * отчёт за день D можно заполнить до 12:00 следующего дня.
+ *
+ * Нужен только как fallback на фронте,
+ * если backend по какой-то причине не прислал deadlineAt.
+ */
+export function getFallbackDeadlineDateForDailyCheckDate(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  const deadline = new Date(year, month - 1, day);
+
+  deadline.setDate(deadline.getDate() + 1);
+  deadline.setHours(DAILY_CHECK_DEADLINE_HOUR, 0, 0, 0);
+
+  return deadline;
+}
+
+export function getFallbackDeadlineIsoForDailyCheckDate(value: string): string {
+  return getFallbackDeadlineDateForDailyCheckDate(value).toISOString();
 }
 
 export function formatDeadlineLabel(value: string) {

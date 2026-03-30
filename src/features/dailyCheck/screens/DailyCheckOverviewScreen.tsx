@@ -13,47 +13,63 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { getDailyCheckRange } from "../api/dailyCheck.api";
-import { DailyCheckRangeDay, DailyReportLifecycleStatus } from "../dailyCheck.types";
+import {
+  DailyCheckRangeDay,
+  DailyReportLifecycleStatus,
+} from "../dailyCheck.types";
 import { DailyCheckStackParamList } from "../../../navigation/DailyCheckNavigator";
 import {
-  formatDeadlineLabel,
   formatDayShort,
+  getCurrentDailyCheckDateString,
   getDeviceTimeZone,
+  getFallbackDeadlineIsoForDailyCheckDate,
   getLast14DaysDateList,
   getLast14DaysRange,
-  getTodayDateString,
 } from "../dailyCheck.time";
 
 type Props = NativeStackScreenProps<DailyCheckStackParamList, "DailyOverview">;
 
-type OverviewDisplayStatus = "open" | "completed" | "partial" | "missed";
+type OverviewDisplayStatus = "open" | "partial" | "completed";
 
-function getStatusColor(status: OverviewDisplayStatus) {
-  switch (status) {
-    case "completed":
-      return "#244b2f";
-    case "partial":
-      return "#6b5a25";
-    case "missed":
-      return "#101010";
-    case "open":
-    default:
-      return "#1f3b66";
+function getOverviewDisplayStatus(day: DailyCheckRangeDay): OverviewDisplayStatus {
+  const total = day.habitsTotal;
+  const yes = day.yesCount;
+
+  if (total <= 0 || yes <= 0) {
+    return "open";
   }
+
+  if (yes >= total) {
+    return "completed";
+  }
+
+  return "partial";
 }
 
-function getStatusLegendLabel(status: OverviewDisplayStatus) {
-  switch (status) {
-    case "completed":
-      return "completed";
-    case "partial":
-      return "partial";
-    case "missed":
-      return "missed";
-    case "open":
-    default:
-      return "open";
+function getGradientColor(ratio: number): string {
+  const clamped = Math.max(0, Math.min(1, ratio));
+
+  if (clamped <= 0) {
+    return "#1f4f9a";
   }
+
+  if (clamped < 0.5) {
+    return "#6d651f";
+  }
+
+  if (clamped < 0.9) {
+    return "#447a2f";
+  }
+
+  return "#1f7a3d";
+}
+
+function getMoodLabel(day: DailyCheckRangeDay): string | null {
+  if (day.moodScore === null || day.moodScore === undefined) {
+    return null;
+  }
+
+  return `${day.moodScore}/10`;
 }
 
 function getStatusCellMark(status: OverviewDisplayStatus) {
@@ -61,65 +77,27 @@ function getStatusCellMark(status: OverviewDisplayStatus) {
     case "completed":
       return "✓";
     case "partial":
-      return "P";
-    case "missed":
-      return "M";
+      return "•";
     case "open":
     default:
       return "";
   }
 }
 
-/**
- * Для overview нам важнее не только lifecycle-статус дня,
- * но и визуальная заполненность.
- *
- * Почему:
- * - backend до дедлайна хранит день как "open"
- * - поэтому даже 10/10 до дедлайна остаётся синим
- *
- * Здесь делаем display-статус:
- * - закрытые дни используем как есть
- * - открытые дни красим по фактической заполненности
- */
-function getOverviewDisplayStatus(day: DailyCheckRangeDay): OverviewDisplayStatus {
-  if (day.status !== "open") {
-    return day.status;
-  }
-
-  const answeredCount = day.yesCount + day.noCount + day.skippedCount;
-  const hasReportContent =
-    day.moodScore !== null ||
-    Boolean(day.summary?.trim()) ||
-    Boolean(day.note?.trim());
-
-  if (day.habitsTotal === 0) {
-    return hasReportContent ? "completed" : "open";
-  }
-
-  if (answeredCount === 0 && !hasReportContent) {
-    return "open";
-  }
-
-  if (answeredCount >= day.habitsTotal) {
-    return "completed";
-  }
-
-  return "partial";
-}
-
 export default function DailyCheckOverviewScreen({ navigation }: Props) {
   const timeZone = useMemo(() => getDeviceTimeZone(), []);
+  const activeReportDate = useMemo(() => getCurrentDailyCheckDateString(), []);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [days, setDays] = useState<DailyCheckRangeDay[]>([]);
   const hasLoadedOnceRef = useRef(false);
 
   const loadOverview = useCallback(async () => {
-    const { from, to } = getLast14DaysRange();
+    const { from, to } = getLast14DaysRange(activeReportDate);
     const data = await getDailyCheckRange(from, to, timeZone);
     setDays(data);
-  }, [timeZone]);
+  }, [activeReportDate, timeZone]);
 
   const loadOverviewWithState = useCallback(
     async (showLoader: boolean) => {
@@ -151,7 +129,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
             setLoading(true);
           }
 
-          const { from, to } = getLast14DaysRange();
+          const { from, to } = getLast14DaysRange(activeReportDate);
           const data = await getDailyCheckRange(from, to, timeZone);
 
           if (!isActive) {
@@ -178,7 +156,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
       return () => {
         isActive = false;
       };
-    }, [timeZone])
+    }, [activeReportDate, timeZone])
   );
 
   const onRefresh = useCallback(async () => {
@@ -201,7 +179,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
   }, [days]);
 
   const calendarDays = useMemo(() => {
-    return getLast14DaysDateList().map((date) => {
+    return getLast14DaysDateList(activeReportDate).map((date) => {
       const existing = daysMap.get(date);
 
       return (
@@ -217,7 +195,7 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
           completionRate: 0,
           finalScore: 0,
           status: "open" as DailyReportLifecycleStatus,
-          deadlineAt: new Date().toISOString(),
+          deadlineAt: getFallbackDeadlineIsoForDailyCheckDate(date),
           closedAt: null,
           wasEditedAfterDeadline: false,
           timeZone,
@@ -226,27 +204,30 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
         }
       );
     });
-  }, [daysMap, timeZone]);
+  }, [activeReportDate, daysMap, timeZone]);
 
   const firstRow = calendarDays.slice(0, 7);
   const secondRow = calendarDays.slice(7, 14);
-  const selectedToday = getTodayDateString();
 
   function renderRow(rowDays: DailyCheckRangeDay[]) {
     return (
       <View style={styles.daysRow}>
         {rowDays.map((day) => {
           const displayStatus = getOverviewDisplayStatus(day);
-          const isToday = day.date === selectedToday;
+          const isActiveReportDay = day.date === activeReportDate;
           const mark = getStatusCellMark(displayStatus);
+          const ratio = day.habitsTotal > 0 ? day.yesCount / day.habitsTotal : 0;
+          const isPartial = ratio > 0 && ratio < 1;
+          const moodLabel = getMoodLabel(day);
 
           return (
             <TouchableOpacity
               key={day.date}
               style={[
                 styles.dayCell,
-                { backgroundColor: getStatusColor(displayStatus) },
-                isToday && styles.todayCell,
+                { backgroundColor: getGradientColor(ratio) },
+                isPartial && styles.partialCell,
+                isActiveReportDay && styles.todayCell,
               ]}
               onPress={() => navigation.navigate("DailyDay", { date: day.date })}
             >
@@ -255,13 +236,11 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
                 {mark ? <Text style={styles.dayCellMark}>{mark}</Text> : null}
               </View>
 
-              <View>
-                {day.moodScore !== null ? (
-                  <Text style={styles.dayCellMood}>{day.moodScore}/10</Text>
-                ) : (
-                  <Text style={styles.dayCellEmpty}>—</Text>
-                )}
-              </View>
+              <View style={styles.dayCellBottom}>
+  {moodLabel && (
+    <Text style={styles.dayCellMood}>{moodLabel}</Text>
+  )}
+</View>
             </TouchableOpacity>
           );
         })}
@@ -291,19 +270,14 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
         <Text style={styles.legendTitle}>Статусы</Text>
 
         <View style={styles.legendRow}>
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("open") }]} />
-          <Text style={styles.legendText}>{getStatusLegendLabel("open")}</Text>
+          <View style={[styles.legendDot, { backgroundColor: getGradientColor(0) }]} />
+          <Text style={styles.legendText}>open</Text>
 
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("completed") }]} />
-          <Text style={styles.legendText}>{getStatusLegendLabel("completed")}</Text>
-        </View>
+          <View style={[styles.legendDot, { backgroundColor: getGradientColor(0.4) }]} />
+          <Text style={styles.legendText}>partial</Text>
 
-        <View style={styles.legendRow}>
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("partial") }]} />
-          <Text style={styles.legendText}>{getStatusLegendLabel("partial")}</Text>
-
-          <View style={[styles.legendDot, { backgroundColor: getStatusColor("missed") }]} />
-          <Text style={styles.legendText}>{getStatusLegendLabel("missed")}</Text>
+          <View style={[styles.legendDot, { backgroundColor: getGradientColor(1) }]} />
+          <Text style={styles.legendText}>completed</Text>
         </View>
       </View>
 
@@ -314,20 +288,10 @@ export default function DailyCheckOverviewScreen({ navigation }: Props) {
 
       <TouchableOpacity
         style={styles.primaryButton}
-        onPress={() => navigation.navigate("DailyDay", { date: selectedToday })}
+        onPress={() => navigation.navigate("DailyDay", { date: activeReportDate })}
       >
         <Text style={styles.primaryButtonText}>Открыть отчёт</Text>
       </TouchableOpacity>
-
-      <View style={styles.bottomCard}>
-        <Text style={styles.bottomTitle}>Сегодня</Text>
-        <Text style={styles.bottomText}>
-          Дедлайн:{" "}
-          {formatDeadlineLabel(
-            daysMap.get(selectedToday)?.deadlineAt ?? new Date().toISOString()
-          )}
-        </Text>
-      </View>
 
       <TouchableOpacity
         style={styles.secondaryButton}
@@ -386,7 +350,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 8,
     flexWrap: "wrap",
   },
   legendDot: {
@@ -397,6 +360,7 @@ const styles = StyleSheet.create({
   legendText: {
     color: "#d0d0d0",
     marginRight: 12,
+    fontSize: 14,
   },
   calendarCard: {
     backgroundColor: "#181818",
@@ -415,6 +379,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 6,
     justifyContent: "space-between",
+  },
+  partialCell: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
   },
   todayCell: {
     borderWidth: 2,
@@ -435,14 +403,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
+  dayCellBottom: {
+    marginTop: 6,
+  },
   dayCellMood: {
-    color: "#ffffff",
-    fontSize: 9,
+    color: "#f3f3f3",
+    fontSize: 10,
     fontWeight: "700",
   },
   dayCellEmpty: {
     color: "#d0d0d0",
-    fontSize: 9,
+    fontSize: 10,
   },
   primaryButton: {
     backgroundColor: "#2d5bff",
@@ -455,22 +426,6 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "700",
-  },
-  bottomCard: {
-    backgroundColor: "#181818",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
-  },
-  bottomTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  bottomText: {
-    color: "#c9c9c9",
-    fontSize: 13,
   },
   secondaryButton: {
     backgroundColor: "#1c1c1c",

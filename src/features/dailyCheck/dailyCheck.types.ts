@@ -34,7 +34,8 @@ export interface DailyCheckItem {
   appliesMode: DailyCheckAppliesMode;
   weekDays: number[];
   sortOrder: number;
-  isActive: boolean;
+  startDate: string;
+  endDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,7 +47,6 @@ export interface DailyCheckDayItem {
   appliesMode: DailyCheckAppliesMode;
   weekDays: number[];
   sortOrder: number;
-  isActive: boolean;
   status: DailyCheckStatus | null;
   skipReason: string | null;
 }
@@ -104,7 +104,7 @@ export interface CreateDailyCheckItemPayload {
   appliesMode?: DailyCheckAppliesMode;
   weekDays?: number[];
   sortOrder?: number;
-  isActive?: boolean;
+  effectiveFrom?: string;
 }
 
 export interface UpdateDailyCheckItemPayload {
@@ -113,7 +113,7 @@ export interface UpdateDailyCheckItemPayload {
   appliesMode?: DailyCheckAppliesMode;
   weekDays?: number[];
   sortOrder?: number;
-  isActive?: boolean;
+  effectiveFrom?: string;
 }
 
 export interface DailyCheckDayItemState {

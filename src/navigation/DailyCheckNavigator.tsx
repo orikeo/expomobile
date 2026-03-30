@@ -6,32 +6,24 @@ import DailyCheckScreen from "../features/dailyCheck/screens/DailyCheckScreen";
 import DailyCheckHabitsScreen from "../features/dailyCheck/screens/DailyCheckHabitsScreen";
 import DailyCheckHabitFormScreen from "../features/dailyCheck/screens/DailyCheckHabitFormScreen";
 
-/**
- * =========================================================
- * DAILY CHECK STACK PARAM LIST
- * =========================================================
- */
 export type DailyCheckStackParamList = {
   DailyOverview: undefined;
-  DailyDay: {
-    date?: string;
-  } | undefined;
+  DailyDay: { date?: string } | undefined;
   DailyHabits: undefined;
   DailyHabitForm:
-    | { mode: "create" }
-    | { mode: "edit"; itemId: string };
+    | {
+        mode?: "create" | "edit";
+        itemId?: string;
+      }
+    | undefined;
 };
 
-/**
- * =========================================================
- * STACK
- * =========================================================
- */
 const Stack = createNativeStackNavigator<DailyCheckStackParamList>();
 
 export default function DailyCheckNavigator() {
   return (
     <Stack.Navigator
+      initialRouteName="DailyOverview"
       screenOptions={{
         headerStyle: {
           backgroundColor: "#0f0f0f",
@@ -74,7 +66,7 @@ export default function DailyCheckNavigator() {
         component={DailyCheckHabitFormScreen}
         options={({ route }) => ({
           title:
-            route.params.mode === "edit"
+            route.params?.mode === "edit"
               ? "Редактировать привычку"
               : "Новая привычка",
         })}

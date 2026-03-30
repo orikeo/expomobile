@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,10 +10,12 @@ import {
   View,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { getDailyCheckItems } from "../api/dailyCheck.api";
 import { DailyCheckItem } from "../dailyCheck.types";
 import { DailyCheckStackParamList } from "../../../navigation/DailyCheckNavigator";
+import { formatDisplayDate } from "../dailyCheck.time";
 
 type Props = NativeStackScreenProps<DailyCheckStackParamList, "DailyHabits">;
 
@@ -23,10 +25,6 @@ type Props = NativeStackScreenProps<DailyCheckStackParamList, "DailyHabits">;
  * =========================================================
  */
 
-/**
- * Преобразуем номера дней в короткую подпись.
- * 1 = пн ... 7 = вс
- */
 function formatWeekDays(weekDays: number[]): string {
   const map: Record<number, string> = {
     1: "Пн",
@@ -46,7 +44,18 @@ function formatWeekDays(weekDays: number[]): string {
     return "Каждый день";
   }
 
-  return weekDays.map((day) => map[day] ?? String(day)).join(", ");
+  return [...weekDays]
+    .sort((a, b) => a - b)
+    .map((day) => map[day] ?? String(day))
+    .join(", ");
+}
+
+function formatAppliesMode(item: DailyCheckItem): string {
+  if (item.appliesMode === "every_day") {
+    return "Каждый день";
+  }
+
+  return `По дням: ${formatWeekDays(item.weekDays)}`;
 }
 
 export default function DailyCheckHabitsScreen({ navigation }: Props) {
@@ -54,48 +63,88 @@ export default function DailyCheckHabitsScreen({ navigation }: Props) {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  /**
-   * =========================================================
-   * LOAD ITEMS
-   * =========================================================
-   */
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) {
+        return a.sortOrder - b.sortOrder;
+      }
+
+      return a.title.localeCompare(b.title, "ru");
+    });
+  }, [items]);
+
   const loadItems = useCallback(async () => {
-    try {
-      const response = await getDailyCheckItems();
-      setItems(response);
-    } catch (error) {
-      console.error("Failed to load habits:", error);
-      Alert.alert("Ошибка", "Не удалось загрузить привычки");
-    }
+    const response = await getDailyCheckItems();
+    setItems(response);
   }, []);
 
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      await loadItems();
-      setLoading(false);
-    };
+  const loadItemsWithState = useCallback(
+    async (showLoader: boolean) => {
+      try {
+        if (showLoader) {
+          setLoading(true);
+        }
 
-    const unsubscribe = navigation.addListener("focus", () => {
-      loadItems();
-    });
+        await loadItems();
+      } catch (error) {
+        console.error("Failed to load habits:", error);
+        Alert.alert("Ошибка", "Не удалось загрузить привычки");
+      } finally {
+        if (showLoader) {
+          setLoading(false);
+        }
+      }
+    },
+    [loadItems]
+  );
 
-    run();
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-    return unsubscribe;
-  }, [loadItems, navigation]);
+      const run = async () => {
+        try {
+          if (isActive) {
+            setLoading(true);
+          }
+
+          const response = await getDailyCheckItems();
+
+          if (!isActive) {
+            return;
+          }
+
+          setItems(response);
+        } catch (error) {
+          console.error("Failed to load habits:", error);
+
+          if (isActive) {
+            Alert.alert("Ошибка", "Не удалось загрузить привычки");
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false);
+          }
+        }
+      };
+
+      run();
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadItems();
-    setRefreshing(false);
-  }, [loadItems]);
+    try {
+      setRefreshing(true);
+      await loadItemsWithState(false);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadItemsWithState]);
 
-  /**
-   * =========================================================
-   * RENDER ITEM
-   * =========================================================
-   */
   const renderItem = ({ item }: { item: DailyCheckItem }) => {
     return (
       <TouchableOpacity
@@ -112,24 +161,22 @@ export default function DailyCheckHabitsScreen({ navigation }: Props) {
             {item.emoji ? `${item.emoji} ` : ""}
             {item.title}
           </Text>
-
-          <View
-            style={[
-              styles.statusBadge,
-              item.isActive ? styles.statusBadgeActive : styles.statusBadgeInactive,
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {item.isActive ? "Active" : "Inactive"}
-            </Text>
-          </View>
         </View>
 
-        <Text style={styles.habitMeta}>
-          Дни: {formatWeekDays(item.weekDays)}
-        </Text>
-
+        <Text style={styles.habitMeta}>{formatAppliesMode(item)}</Text>
         <Text style={styles.habitMeta}>Порядок: {item.sortOrder}</Text>
+
+        {!!item.startDate && (
+          <Text style={styles.habitMeta}>
+            Действует с: {formatDisplayDate(item.startDate)}
+          </Text>
+        )}
+
+        {!!item.endDate && (
+          <Text style={styles.habitMeta}>
+            Действует до: {formatDisplayDate(item.endDate)}
+          </Text>
+        )}
       </TouchableOpacity>
     );
   };
@@ -146,7 +193,7 @@ export default function DailyCheckHabitsScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <FlatList
-        data={items}
+        data={sortedItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.content}
@@ -251,22 +298,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 12,
   },
-  statusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  statusBadgeActive: {
-    backgroundColor: "#244b2f",
-  },
-  statusBadgeInactive: {
-    backgroundColor: "#4a2a2a",
-  },
-  statusBadgeText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
   habitMeta: {
     color: "#bbbbbb",
     fontSize: 13,
@@ -281,14 +312,13 @@ const styles = StyleSheet.create({
   emptyText: {
     color: "#ffffff",
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 8,
   },
   emptySubtext: {
     color: "#aaaaaa",
     fontSize: 14,
     textAlign: "center",
-    maxWidth: 260,
     lineHeight: 20,
   },
 });
