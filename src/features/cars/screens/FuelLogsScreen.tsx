@@ -17,24 +17,22 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { CarsStackParamList } from "../../../navigation/CarsStack";
-import { getFuelLogsByCarId, deleteFuelLog, FuelLog } from "../api/fuel.api";
+import {
+  getFuelLogsByCarId,
+  deleteFuelLog,
+  getFuelStatsByCarId,
+  FuelLog,
+  FuelStatsResponse,
+} from "../api/fuel.api";
 import { colors } from "../../../theme/color";
 
 type RouteType = RouteProp<CarsStackParamList, "FuelLogs">;
 type NavigationType = NativeStackNavigationProp<CarsStackParamList, "FuelLogs">;
 
-/**
- * =========================================================
- * FUEL LOGS SCREEN
- * =========================================================
- *
- * Экран показывает список заправок выбранной машины.
- * Здесь можно:
- *  - загрузить историю
- *  - перейти к созданию новой записи
- *  - перейти к редактированию
- *  - удалить запись
- */
+function formatNumber(value: number) {
+  return value.toFixed(2);
+}
+
 export default function FuelLogsScreen() {
   const route = useRoute<RouteType>();
   const navigation = useNavigation<NavigationType>();
@@ -42,15 +40,21 @@ export default function FuelLogsScreen() {
   const { carId, name } = route.params;
 
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
+  const [stats, setStats] = useState<FuelStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  async function loadFuelLogs() {
+  async function loadFuelData() {
     try {
       setLoading(true);
 
-      const data = await getFuelLogsByCarId(carId);
-      setFuelLogs(data);
+      const [logsData, statsData] = await Promise.all([
+        getFuelLogsByCarId(carId),
+        getFuelStatsByCarId(carId),
+      ]);
+
+      setFuelLogs(logsData);
+      setStats(statsData);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Не удалось загрузить заправки";
@@ -61,9 +65,6 @@ export default function FuelLogsScreen() {
     }
   }
 
-  /**
-   * Заголовок экрана и кнопка добавления новой записи.
-   */
   useLayoutEffect(() => {
     navigation.setOptions({
       title: `${name} - Fuel logs`,
@@ -82,13 +83,9 @@ export default function FuelLogsScreen() {
     });
   }, [navigation, name, carId]);
 
-  /**
-   * Перезагрузка при каждом возврате на экран.
-   * Это удобно после create / edit.
-   */
   useFocusEffect(
     useCallback(() => {
-      loadFuelLogs();
+      loadFuelData();
     }, [carId])
   );
 
@@ -112,11 +109,7 @@ export default function FuelLogsScreen() {
       setDeletingId(id);
       await deleteFuelLog(id);
 
-      /**
-       * После успешного удаления сразу обновляем локальный список,
-       * чтобы не делать лишний запрос.
-       */
-      setFuelLogs((prev) => prev.filter((item) => item.id !== id));
+      await loadFuelData();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Не удалось удалить запись";
@@ -125,6 +118,152 @@ export default function FuelLogsScreen() {
     } finally {
       setDeletingId(null);
     }
+  }
+
+  function renderStatsHeader() {
+    if (!stats) {
+      return null;
+    }
+
+    const { summary, consumption } = stats;
+
+    return (
+      <View style={styles.statsWrapper}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Statistics</Text>
+          <Text style={styles.sectionSubtitle}>
+            Общая сводка по машине {name}
+          </Text>
+        </View>
+
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Всего записей</Text>
+            <Text style={styles.statValue}>{summary.totalLogs}</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Полных баков</Text>
+            <Text style={styles.statValue}>{summary.totalFullTankLogs}</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Всего литров</Text>
+            <Text style={styles.statValue}>
+              {formatNumber(summary.totalLiters)}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Всего потрачено</Text>
+            <Text style={styles.statValue}>
+              {formatNumber(summary.totalSpent)}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Средняя цена / л</Text>
+            <Text style={styles.statValue}>
+              {formatNumber(summary.averagePricePerLiter)}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Средняя заправка</Text>
+            <Text style={styles.statValue}>
+              {formatNumber(summary.averageFillVolume)}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Последняя дата</Text>
+            <Text style={styles.statValueSmall}>
+              {summary.lastFuelDate ?? "—"}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Последний пробег</Text>
+            <Text style={styles.statValueSmall}>
+              {summary.lastOdometer !== null ? `${summary.lastOdometer} км` : "—"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Consumption</Text>
+          <Text style={styles.sectionSubtitle}>
+            Считается только по участкам между полными баками с известным пробегом
+          </Text>
+        </View>
+
+        {consumption ? (
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Участков</Text>
+              <Text style={styles.statValue}>{consumption.segmentCount}</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Пробег</Text>
+              <Text style={styles.statValue}>
+                {consumption.totalDistanceKm} км
+              </Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Топлива в расчёте</Text>
+              <Text style={styles.statValue}>
+                {formatNumber(consumption.totalLiters)}
+              </Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Потрачено в расчёте</Text>
+              <Text style={styles.statValue}>
+                {formatNumber(consumption.totalSpent)}
+              </Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Расход / 100 км</Text>
+              <Text style={styles.statValue}>
+                {formatNumber(consumption.averageConsumptionPer100Km)}
+              </Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Стоимость / км</Text>
+              <Text style={styles.statValue}>
+                {formatNumber(consumption.averageCostPerKm)}
+              </Text>
+            </View>
+
+            <View style={styles.statCardWide}>
+              <Text style={styles.statLabel}>Стоимость / 100 км</Text>
+              <Text style={styles.statValue}>
+                {formatNumber(consumption.averageCostPer100Km)}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Пока мало данных для расхода</Text>
+            <Text style={styles.infoText}>
+              Нужны минимум две записи с отметкой Full tank и с заполненным
+              odometer, чтобы приложение могло посчитать расход более осмысленно.
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Fuel history</Text>
+          <Text style={styles.sectionSubtitle}>
+            Все записи по заправкам этой машины
+          </Text>
+        </View>
+      </View>
+    );
   }
 
   function renderItem({ item }: { item: FuelLog }) {
@@ -199,7 +338,7 @@ export default function FuelLogsScreen() {
       <View style={styles.center}>
         <Text style={styles.emptyTitle}>Заправок пока нет</Text>
         <Text style={styles.emptyText}>
-          История заправок этой машины появится здесь
+          Добавь несколько записей, и здесь появятся история и статистика
         </Text>
 
         <TouchableOpacity
@@ -223,6 +362,7 @@ export default function FuelLogsScreen() {
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       contentContainerStyle={styles.listContent}
+      ListHeaderComponent={renderStatsHeader()}
     />
   );
 }
@@ -272,6 +412,92 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     backgroundColor: colors.background,
+  },
+
+  statsWrapper: {
+    marginBottom: 8,
+  },
+
+  sectionHeader: {
+    marginBottom: 10,
+  },
+
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+
+  sectionSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
+
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 16,
+  },
+
+  statCard: {
+    width: "48%",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 14,
+  },
+
+  statCardWide: {
+    width: "100%",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 14,
+  },
+
+  statLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+
+  statValueSmall: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+
+  infoCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 8,
+  },
+
+  infoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
   },
 
   card: {
@@ -326,21 +552,21 @@ const styles = StyleSheet.create({
 
   totalPriceText: {
     fontSize: 16,
-    color: colors.textPrimary,
     fontWeight: "700",
+    color: colors.textPrimary,
     marginBottom: 8,
   },
 
   cardDate: {
     fontSize: 12,
     color: colors.textMuted,
-    marginTop: 8,
-    marginBottom: 14,
+    marginTop: 4,
   },
 
   actionsRow: {
     flexDirection: "row",
     gap: 10,
+    marginTop: 14,
   },
 
   editButton: {
@@ -372,6 +598,6 @@ const styles = StyleSheet.create({
   },
 
   buttonDisabled: {
-    opacity: 0.65,
+    opacity: 0.7,
   },
 });

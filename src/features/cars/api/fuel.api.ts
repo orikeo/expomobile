@@ -13,6 +13,33 @@ export type FuelLog = {
   createdAt: string;
 };
 
+export type FuelStatsSummary = {
+  totalLogs: number;
+  logsWithOdometer: number;
+  totalFullTankLogs: number;
+  totalLiters: number;
+  totalSpent: number;
+  averagePricePerLiter: number;
+  averageFillVolume: number;
+  lastFuelDate: string | null;
+  lastOdometer: number | null;
+};
+
+export type FuelConsumptionStats = {
+  segmentCount: number;
+  totalDistanceKm: number;
+  totalLiters: number;
+  totalSpent: number;
+  averageConsumptionPer100Km: number;
+  averageCostPerKm: number;
+  averageCostPer100Km: number;
+};
+
+export type FuelStatsResponse = {
+  summary: FuelStatsSummary;
+  consumption: FuelConsumptionStats | null;
+};
+
 export type CreateFuelLogDto = {
   carId: string;
   fuelDate: string;
@@ -34,6 +61,12 @@ export type UpdateFuelLogDto = {
 
 export async function getFuelLogsByCarId(carId: string): Promise<FuelLog[]> {
   return apiRequest(`/fuel/car/${carId}`);
+}
+
+export async function getFuelStatsByCarId(
+  carId: string
+): Promise<FuelStatsResponse> {
+  return apiRequest(`/fuel/car/${carId}/stats`);
 }
 
 export async function createFuelLog(data: CreateFuelLogDto): Promise<FuelLog> {
